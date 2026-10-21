@@ -16,6 +16,63 @@ import {
 } from '../utils';
 
 /**
+ * Friendly market aliases mapping country codes/names to Bing markets.
+ */
+const MARKET_ALIASES: Record<string, string> = {
+  // United States
+  us: 'en-US',
+  usa: 'en-US',
+  // China
+  cn: 'zh-CN',
+  zh: 'zh-CN',
+  china: 'zh-CN',
+  // Japan
+  jp: 'ja-JP',
+  ja: 'ja-JP',
+  japan: 'ja-JP',
+  // United Kingdom
+  uk: 'en-GB',
+  gb: 'en-GB',
+  // Germany
+  de: 'de-DE',
+  germany: 'de-DE',
+  // France
+  fr: 'fr-FR',
+  france: 'fr-FR',
+  // Canada
+  ca: 'en-CA',
+  canada: 'en-CA',
+  // Australia
+  au: 'en-AU',
+  australia: 'en-AU',
+  // India
+  in: 'en-IN',
+  india: 'en-IN',
+  // Italy
+  it: 'it-IT',
+  italy: 'it-IT',
+  // Spain
+  es: 'es-ES',
+  spain: 'es-ES',
+  // Brazil
+  br: 'pt-BR',
+  brazil: 'pt-BR',
+  // New Zealand
+  nz: 'en-NZ',
+  newzealand: 'en-NZ',
+  // Global / Rest of World
+  row: 'en-ROW',
+  global: 'en-ROW',
+  world: 'en-ROW',
+};
+
+function resolveMarketAlias(val: string): string | undefined {
+  const lower = val.toLowerCase();
+  if (MARKET_ALIASES[lower]) return MARKET_ALIASES[lower];
+  return BING_MARKETS.find((m) => m.toLowerCase() === lower);
+}
+
+/**
  * Parses user arguments for resolution, market, and archive index.
  */
 function parseWallpaperArgs(args: string[]): {
@@ -48,8 +105,18 @@ function parseWallpaperArgs(args: string[]): {
       continue;
     }
 
-    if (BING_MARKETS.some((m) => m.toLowerCase() === lower)) {
-      result.mkt = raw;
+    if (lower.startsWith('mkt:') || lower.startsWith('market:')) {
+      const val = lower.replace(/^mkt:|^market:/, '');
+      const resolved = resolveMarketAlias(val);
+      if (resolved) {
+        result.mkt = resolved;
+        continue;
+      }
+    }
+
+    const resolvedMkt = resolveMarketAlias(raw);
+    if (resolvedMkt) {
+      result.mkt = resolvedMkt;
       continue;
     }
   }
@@ -174,7 +241,7 @@ export class WallpaperModule extends BaseModule {
       },
       {
         description: 'Fetch and send daily Bing wallpaper (UHD/4K)',
-        usage: '[UHD|1080x1920|random] [en-US|zh-CN] [0-7]',
+        usage: '[random|0-7] [us|jp|cn|uk|de|fr...] [4k|uhd|1080]',
       }
     );
   }
