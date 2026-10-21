@@ -1,83 +1,86 @@
 # Deltax App
 
-A production-grade, modular, non-blocking asynchronous Telegram Bot engineered for serverless deployment on [Cloudflare Workers](https://workers.cloudflare.com/) using [Hono](https://hono.dev/), [grammY](https://grammy.dev/), and Cloudflare D1.
+Deltax App is a lightweight, high-performance Telegram bot engineered for Cloudflare Workers edge runtime. Powered by Hono and grammY, its core architecture is inspired by Caligo's modular command dispatcher pattern, redesigned for modern serverless environments.
 
 ---
 
-## Architecture Highlights
+## Highlights
 
-- **Serverless and Global**: Running on Cloudflare's worldwide V8 edge network with Hono HTTP routing.
-- **Single Client Architecture**: Clean single-client event dispatcher and command interceptor.
-- **Strict Command & Prefix Dispatcher**: Centralized pre-flight command parser supporting dynamic bot/guest prefixes (`/`, `!`), owner-only permissions, and alias mapping.
-- **Defensive Event Handling**: Skip ambiguous replies without explicit commands, preventing unwanted replies.
-- **Fully Object-Oriented Modules**: Every feature module is an encapsulated class inheriting from [`BaseModule`](src/core/base_module.ts).
-- **Auto-Imported Modules**: Modules placed in `src/modules/**/*.ts` are automatically discovered, registered, and mounted without manually modifying index files.
-- **Clean Flat Structure**: Direct top-level imports (`src/types.ts`, `src/config.ts`, `src/html.ts`, `src/extractors/`) with standard snake_case naming.
-- **Type-Safe HTML Formatting**: Native integration with `@grammyjs/parse-mode` and custom `html` tagged template literals ensuring zero double-escaping and crash-proof Telegram HTML rendering.
-- **Non-blocking Execution**: Powered by Cloudflare's `ExecutionContext.waitUntil()`. Webhooks respond immediately with `200 OK`, while async media fetching and background tasks run non-blockingly.
+- **Single-Client Command Dispatcher**: Centralized pre-flight command router supporting dynamic prefixing (`/`, `!`), alias mapping, and owner-only authorization.
+- **Caligo-Inspired Modular Design**: Self-contained OOP modules inheriting from `BaseModule` with automatic discovery and zero manual wiring.
+- **Strict Event Filtering**: Pre-filters text commands to eliminate double execution and suppresses accidental triggers when mentioned by reply.
+- **Edge-Native & Serverless**: Sub-15ms cold starts on Cloudflare Workers edge network using Hono HTTP routing.
+- **D1 Persistent State**: Dynamic prefix configuration and bot settings persisted across edge isolates via Cloudflare D1.
+- **Non-Blocking Concurrency**: Webhook updates return `200 OK` instantaneously while heavy async jobs (media extraction, screenshots) run in the background via `ctx.waitUntil`.
+- **Type-Safe HTML**: Built-in tagged template literals with automatic entity escaping to guarantee crash-proof Telegram HTML rendering.
 
 ---
 
-## Project Structure
+## Module Example
 
-```text
-deltax-app/
-├── wrangler.jsonc             # Cloudflare Workers configuration
-├── package.json               # Dependencies, build scripts & dev tooling
-├── tsconfig.json              # TypeScript configuration
-├── LICENSE                    # MIT License
-├── .dev.vars.example          # Local environment variables template
-├── scripts/
-│   ├── auto_import.mjs        # Recursive auto-discovery generator for src/modules/
-│   └── create_module.mjs      # Module scaffolding CLI (npm run make:module)
-├── src/
-│   ├── index.ts               # Hono edge router & Cloudflare Worker entrypoint
-│   ├── config.ts              # Route endpoints, HTTP headers, bot metadata
-│   ├── html.ts                # Type-safe HTML escaping, tagged template literal & parse-mode
-│   ├── types.ts               # Centralized TypeScript definitions
-│   ├── core/                  # Core bot architecture & dispatch engine
-│   │   ├── base_module.ts     # Abstract OOP BaseModule class with grammY composer
-│   │   ├── command_dispatcher.ts # Centralized prefix and command parser
-│   │   ├── module_manager.ts  # Defensive module registry & command sync
-│   │   ├── prefix_service.ts  # D1-backed dynamic prefix management & owner checks
-│   │   ├── telegram_bot.ts    # Main server class handling webhook requests & errors
-│   │   └── index.ts           # Core barrel export
-│   ├── extractors/            # Social media scrapers & media extractors
-│   │   ├── instagram.ts       # Instagram Reels/Posts extractor
-│   │   ├── tiktok.ts          # TikTok video/photo extractor
-│   │   ├── twitter.ts         # Twitter / X video/image extractor
-│   │   ├── types.ts           # Extractor type definitions
-│   │   └── index.ts           # Extractor barrel export
-│   └── modules/               # Feature modules
-│       ├── index.ts           # Auto-generated module registry (DO NOT EDIT)
-│       ├── start.ts           # /start command & menu
-│       ├── downloader.ts      # Multi-platform media downloader
-│       └── web.ts             # Web screenshot & /setprefix commands
-└── tests/
-    ├── extractors.test.mjs    # Tests for media extractor URL detection
-    ├── module_system.test.mjs # Tests for module registry & event handling
-    ├── prefix_owner.test.mjs  # Tests for strict prefix enforcement & owner auth
-    └── worker.test.mjs        # Tests for Worker server, auth & webhook handling
+Adding a new feature is as simple as defining a class:
+
+```typescript
+import { BaseModule, type CommandContext } from './core';
+import { html } from './html';
+
+export class PingModule extends BaseModule {
+  readonly id = 'ping';
+  readonly name = 'Ping';
+  readonly description = 'Latency and status check';
+
+  public setup(): void {
+    this.command(
+      ['ping', 'p'],
+      async (ctx: CommandContext) => {
+        await ctx.respond(html`<b>Pong!</b> Active prefix: <code>${ctx.prefix}</code>`);
+      },
+      { description: 'Check bot latency' }
+    );
+  }
+}
+```
+
+Modules placed in `src/modules/` are automatically discovered and registered on build.
+
+---
+
+## Commands
+
+| Command | Arguments | Description |
+|---|---|---|
+| `/start` | None | Welcome banner and status |
+| `/dl` | `<url>` | Download media from Instagram, TikTok, or X (Twitter) |
+| `/ss` | `<url>` | Capture a high-resolution website screenshot |
+| `/setprefix` | `<prefix>` | Change the active command prefix (Owner only) |
+
+---
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Run test suite
+npm test
+
+# Type-check TypeScript
+npm run typecheck
+
+# Deploy to Cloudflare Workers
+npm run deploy
 ```
 
 ---
 
-## Developer Scripts
+## Acknowledgements
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Starts local development server with Wrangler |
-| `npm run make:module <name>` | Scaffolds a new module and updates `src/modules/index.ts` |
-| `npm run generate:modules` | Scans `src/modules/` and updates `src/modules/index.ts` |
-| `npm run watch:modules` | Watches `src/modules/` for added/deleted module files |
-| `npm run typecheck` | Validates TypeScript types across the entire codebase |
-| `npm test` | Runs the Node.js test suite (`tests/*.test.mjs`) |
-| `npm run build` | Builds bundle and performs a dry-run Wrangler deployment |
-| `npm run deploy` | Deploys the worker to Cloudflare production |
-| `npm run clean` | Cleans build cache (`dist/`, `.wrangler/`) |
+- Built with [grammY](https://grammy.dev/) and [Hono](https://hono.dev/).
+- Core modular architecture and command dispatching patterns inspired by [Caligo](https://github.com/TeamDelta/Caligo).
 
 ---
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+[MIT](LICENSE) © 2026 Deltax App
