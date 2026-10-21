@@ -8,16 +8,13 @@ function escapeRegex(str) {
 function isScreenshotRequest(text, botUsername, activePrefix = '/') {
   if (!text) return false;
   const trimmed = text.trim();
-  const prefixes = Array.from(new Set([activePrefix, '/']));
+  const escP = escapeRegex(activePrefix || '/');
 
-  for (const p of prefixes) {
-    const escP = escapeRegex(p);
-    const directRegex = new RegExp(`^${escP}(?:ss|web)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
-    if (directRegex.test(trimmed)) return true;
+  const directRegex = new RegExp(`^${escP}(?:ss|web)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
+  if (directRegex.test(trimmed)) return true;
 
-    const mentionRegex = new RegExp(`^@\\w+\\s+${escP}(?:ss|web)(?:\\s+|$|[?#])`, 'i');
-    if (mentionRegex.test(trimmed)) return true;
-  }
+  const mentionRegex = new RegExp(`^@\\w+\\s+${escP}(?:ss|web)(?:\\s+|$|[?#])`, 'i');
+  if (mentionRegex.test(trimmed)) return true;
 
   return false;
 }
@@ -25,16 +22,13 @@ function isScreenshotRequest(text, botUsername, activePrefix = '/') {
 function isSetPrefixRequest(text, botUsername, activePrefix = '/') {
   if (!text) return false;
   const trimmed = text.trim();
-  const prefixes = Array.from(new Set([activePrefix, '/']));
+  const escP = escapeRegex(activePrefix || '/');
 
-  for (const p of prefixes) {
-    const escP = escapeRegex(p);
-    const directRegex = new RegExp(`^${escP}setprefix(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
-    if (directRegex.test(trimmed)) return true;
+  const directRegex = new RegExp(`^${escP}setprefix(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
+  if (directRegex.test(trimmed)) return true;
 
-    const mentionRegex = new RegExp(`^@\\w+\\s+${escP}setprefix(?:\\s+|$|[?#])`, 'i');
-    if (mentionRegex.test(trimmed)) return true;
-  }
+  const mentionRegex = new RegExp(`^@\\w+\\s+${escP}setprefix(?:\\s+|$|[?#])`, 'i');
+  if (mentionRegex.test(trimmed)) return true;
 
   return false;
 }
@@ -42,34 +36,38 @@ function isSetPrefixRequest(text, botUsername, activePrefix = '/') {
 function isUnprefixedDownloadCommand(text, activePrefix = '/') {
   if (!text) return false;
   const trimmed = text.trim();
-  const prefixes = Array.from(new Set([activePrefix, '/']));
-  for (const p of prefixes) {
-    const escP = escapeRegex(p);
-    if (new RegExp(`^${escP}(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i').test(trimmed)) {
-      return false;
-    }
-    if (new RegExp(`^@\\w+\\s+${escP}(?:dl|download)(?:\\s+|$|[?#])`, 'i').test(trimmed)) {
-      return false;
-    }
+  const escP = escapeRegex(activePrefix || '/');
+
+  if (new RegExp(`^${escP}(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i').test(trimmed)) {
+    return false;
   }
+  if (new RegExp(`^@\\w+\\s+${escP}(?:dl|download)(?:\\s+|$|[?#])`, 'i').test(trimmed)) {
+    return false;
+  }
+
   if (/^@\w+\s+(?:dl|download)(?:\s+|$|[?#])/i.test(trimmed)) return true;
   if (/^(?:dl|download)(?:\s+|$|[?#])/i.test(trimmed)) return true;
+  if (
+    activePrefix !== '/' &&
+    (new RegExp(`^/(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i').test(trimmed) ||
+      new RegExp(`^@\\w+\\s+/(?:dl|download)(?:\\s+|$|[?#])`, 'i').test(trimmed))
+  ) {
+    return true;
+  }
+
   return false;
 }
 
 function isDownloadRequest(text, botUsername, activePrefix = '/') {
   if (!text) return false;
   const trimmed = text.trim();
-  const prefixes = Array.from(new Set([activePrefix, '/']));
+  const escP = escapeRegex(activePrefix || '/');
 
-  for (const p of prefixes) {
-    const escP = escapeRegex(p);
-    const directRegex = new RegExp(`^${escP}(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
-    if (directRegex.test(trimmed)) return true;
+  const directRegex = new RegExp(`^${escP}(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
+  if (directRegex.test(trimmed)) return true;
 
-    const mentionRegex = new RegExp(`^@\\w+\\s+${escP}(?:dl|download)(?:\\s+|$|[?#])`, 'i');
-    if (mentionRegex.test(trimmed)) return true;
-  }
+  const mentionRegex = new RegExp(`^@\\w+\\s+${escP}(?:dl|download)(?:\\s+|$|[?#])`, 'i');
+  if (mentionRegex.test(trimmed)) return true;
 
   return false;
 }
@@ -104,6 +102,10 @@ describe('Deltax App - Strict Prefix Enforcement & Owner Authorization', () => {
     assert.equal(isScreenshotRequest('!ss google.com', 'deltaxapp', '!'), true);
     assert.equal(isScreenshotRequest('!web google.com', 'deltaxapp', '!'), true);
     assert.equal(isScreenshotRequest('@deltaxapp !ss google.com', 'deltaxapp', '!'), true);
+    // When prefix is '!', '/' MUST NOT be parsed as screenshot command
+    assert.equal(isScreenshotRequest('/ss google.com', 'deltaxapp', '!'), false);
+    assert.equal(isScreenshotRequest('/web google.com', 'deltaxapp', '!'), false);
+    assert.equal(isScreenshotRequest('@deltaxapp /ss google.com', 'deltaxapp', '!'), false);
     assert.equal(isScreenshotRequest('@deltaxapp ss google.com', 'deltaxapp', '!'), false);
     assert.equal(isScreenshotRequest('ss google.com', 'deltaxapp', '!'), false);
   });
@@ -113,6 +115,8 @@ describe('Deltax App - Strict Prefix Enforcement & Owner Authorization', () => {
     assert.equal(isSetPrefixRequest('@deltaxapp /setprefix !', 'deltaxapp', '/'), true);
     assert.equal(isSetPrefixRequest('!setprefix ?', 'deltaxapp', '!'), true);
     assert.equal(isSetPrefixRequest('@deltaxapp !setprefix ?', 'deltaxapp', '!'), true);
+    // When prefix is '!', '/setprefix' MUST NOT be parsed
+    assert.equal(isSetPrefixRequest('/setprefix !', 'deltaxapp', '!'), false);
     assert.equal(isSetPrefixRequest('setprefix !', 'deltaxapp', '/'), false);
   });
 
@@ -159,8 +163,12 @@ describe('Deltax App - Strict Prefix Enforcement & Owner Authorization', () => {
     const customPrefix = '!';
     assert.equal(isUnprefixedDownloadCommand('@deltaxapp dl https://www.instagram.com/p/123/', customPrefix), true);
     assert.equal(isDownloadRequest('@deltaxapp dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix), false);
+    assert.equal(isUnprefixedDownloadCommand('@deltaxapp /dl https://www.instagram.com/p/123/', customPrefix), true);
+    assert.equal(isDownloadRequest('@deltaxapp /dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix), false);
     assert.equal(isUnprefixedDownloadCommand('dl https://www.instagram.com/p/123/', customPrefix), true);
     assert.equal(isDownloadRequest('dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix), false);
+    assert.equal(isUnprefixedDownloadCommand('/dl https://www.instagram.com/p/123/', customPrefix), true);
+    assert.equal(isDownloadRequest('/dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix), false);
 
     // Valid prefixed commands
     assert.equal(isUnprefixedDownloadCommand('@deltaxapp !dl https://www.instagram.com/p/123/', customPrefix), false);

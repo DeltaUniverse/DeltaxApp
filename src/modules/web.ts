@@ -136,25 +136,22 @@ export function isScreenshotRequest(
 ): boolean {
   if (!text) return false;
   const trimmed = text.trim();
-  const prefixes = Array.from(new Set([activePrefix, '/']));
+  const escP = escapeRegex(activePrefix || '/');
 
-  for (const p of prefixes) {
-    const escP = escapeRegex(p);
-    // 1. Direct command: e.g. "!ss", "/ss", "!web", "/web" with optional @bot tag
-    const directRegex = new RegExp(`^${escP}(?:ss|web)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
-    if (directRegex.test(trimmed)) return true;
+  // 1. Direct command: e.g. "!ss", "!web" matching strictly active prefix
+  const directRegex = new RegExp(`^${escP}(?:ss|web)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
+  if (directRegex.test(trimmed)) return true;
 
-    // 2. Mention followed by prefixed command: e.g. "@deltaxapp !ss", "@deltaxapp /ss"
-    const mentionRegex = new RegExp(`^@\\w+\\s+${escP}(?:ss|web)(?:\\s+|$|[?#])`, 'i');
-    if (mentionRegex.test(trimmed)) return true;
-  }
+  // 2. Mention followed by prefixed command: e.g. "@deltaxapp !ss"
+  const mentionRegex = new RegExp(`^@\\w+\\s+${escP}(?:ss|web)(?:\\s+|$|[?#])`, 'i');
+  if (mentionRegex.test(trimmed)) return true;
 
   return false;
 }
 
 /**
  * Checks if a message is intended as a setprefix command
- * Supports e.g. "/setprefix", "!setprefix", "@deltaxapp /setprefix", "@deltaxapp !setprefix"
+ * Strictly requires the activePrefix (e.g. "!setprefix" when activePrefix is "!")
  */
 export function isSetPrefixRequest(
   text: string,
@@ -163,16 +160,13 @@ export function isSetPrefixRequest(
 ): boolean {
   if (!text) return false;
   const trimmed = text.trim();
-  const prefixes = Array.from(new Set([activePrefix, '/']));
+  const escP = escapeRegex(activePrefix || '/');
 
-  for (const p of prefixes) {
-    const escP = escapeRegex(p);
-    const directRegex = new RegExp(`^${escP}setprefix(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
-    if (directRegex.test(trimmed)) return true;
+  const directRegex = new RegExp(`^${escP}setprefix(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
+  if (directRegex.test(trimmed)) return true;
 
-    const mentionRegex = new RegExp(`^@\\w+\\s+${escP}setprefix(?:\\s+|$|[?#])`, 'i');
-    if (mentionRegex.test(trimmed)) return true;
-  }
+  const mentionRegex = new RegExp(`^@\\w+\\s+${escP}setprefix(?:\\s+|$|[?#])`, 'i');
+  if (mentionRegex.test(trimmed)) return true;
 
   return false;
 }

@@ -177,7 +177,20 @@ export class CommandDispatcher {
     activePrefix: string
   ): { commandName: string; input: string; prefixUsed: string } | null {
     const trimmed = text.trim();
-    const prefixes = Array.from(new Set([activePrefix, '/']));
+    if (!trimmed) return null;
+
+    // Strict prefix enforcement:
+    // When activePrefix is custom (e.g. '!'), ONLY that prefix is accepted.
+    // Fallback '/' is only permitted for the built-in Telegram UI /start button.
+    const prefixes = [activePrefix];
+    const isTelegramStartButton =
+      activePrefix !== '/' &&
+      (/^\/start(?:@\w+)?(?:\s+|$)/i.test(trimmed) ||
+        new RegExp(`^@${botUsername}\\s+/start(?:\\s+|$)`, 'i').test(trimmed));
+
+    if (isTelegramStartButton) {
+      prefixes.push('/');
+    }
 
     for (const p of prefixes) {
       const escP = escapeRegex(p);
@@ -186,6 +199,10 @@ export class CommandDispatcher {
         new RegExp(`^${escP}([a-zA-Z0-9_]+)(?:@${botUsername})?(?:\\s+([\\s\\S]*)|$)`, 'i')
       );
       if (directMatch) {
+        const cmdName = directMatch[1].toLowerCase();
+        if (p === '/' && activePrefix !== '/' && cmdName !== 'start') {
+          continue;
+        }
         return {
           commandName: directMatch[1],
           input: (directMatch[2] || '').trim(),
@@ -197,6 +214,10 @@ export class CommandDispatcher {
         new RegExp(`^@${botUsername}\\s+${escP}([a-zA-Z0-9_]+)(?:\\s+([\\s\\S]*)|$)`, 'i')
       );
       if (mentionMatch) {
+        const cmdName = mentionMatch[1].toLowerCase();
+        if (p === '/' && activePrefix !== '/' && cmdName !== 'start') {
+          continue;
+        }
         return {
           commandName: mentionMatch[1],
           input: (mentionMatch[2] || '').trim(),

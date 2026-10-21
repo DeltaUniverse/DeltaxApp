@@ -15,21 +15,25 @@ export function isUnprefixedDownloadCommand(
   if (!text) return false;
   const trimmed = text.trim();
 
-  // If text starts with a valid prefix, it's NOT unprefixed!
-  const prefixes = Array.from(new Set([activePrefix, '/']));
-  for (const p of prefixes) {
-    const escP = escapeRegex(p);
-    if (new RegExp(`^${escP}(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i').test(trimmed)) {
-      return false;
-    }
-    if (new RegExp(`^@\\w+\\s+${escP}(?:dl|download)(?:\\s+|$|[?#])`, 'i').test(trimmed)) {
-      return false;
-    }
+  // If text starts with the strictly active prefix, it's NOT unprefixed!
+  const escP = escapeRegex(activePrefix || '/');
+  if (new RegExp(`^${escP}(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i').test(trimmed)) {
+    return false;
+  }
+  if (new RegExp(`^@\\w+\\s+${escP}(?:dl|download)(?:\\s+|$|[?#])`, 'i').test(trimmed)) {
+    return false;
   }
 
-  // Matches "@bot dl ...", "@bot download ...", "dl ...", "download ..."
+  // Matches un-prefixed "@bot dl ...", "dl ...", or wrong prefix (e.g. "/dl" when active is "!")
   if (/^@\w+\s+(?:dl|download)(?:\s+|$|[?#])/i.test(trimmed)) return true;
   if (/^(?:dl|download)(?:\s+|$|[?#])/i.test(trimmed)) return true;
+  if (
+    activePrefix !== '/' &&
+    (new RegExp(`^/(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i').test(trimmed) ||
+      new RegExp(`^@\\w+\\s+/(?:dl|download)(?:\\s+|$|[?#])`, 'i').test(trimmed))
+  ) {
+    return true;
+  }
 
   return false;
 }
@@ -44,18 +48,15 @@ export function isDownloadRequest(
 ): boolean {
   if (!text) return false;
   const trimmed = text.trim();
-  const prefixes = Array.from(new Set([activePrefix, '/']));
+  const escP = escapeRegex(activePrefix || '/');
 
-  for (const p of prefixes) {
-    const escP = escapeRegex(p);
-    // 1. Direct command: e.g. "!dl", "/dl", "!download", "/download"
-    const directRegex = new RegExp(`^${escP}(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
-    if (directRegex.test(trimmed)) return true;
+  // 1. Direct command: e.g. "!dl", "!download" matching strictly active prefix
+  const directRegex = new RegExp(`^${escP}(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
+  if (directRegex.test(trimmed)) return true;
 
-    // 2. Mention followed by prefixed command: e.g. "@deltaxapp !dl", "@deltaxapp /dl"
-    const mentionRegex = new RegExp(`^@\\w+\\s+${escP}(?:dl|download)(?:\\s+|$|[?#])`, 'i');
-    if (mentionRegex.test(trimmed)) return true;
-  }
+  // 2. Mention followed by prefixed command: e.g. "@deltaxapp !dl"
+  const mentionRegex = new RegExp(`^@\\w+\\s+${escP}(?:dl|download)(?:\\s+|$|[?#])`, 'i');
+  if (mentionRegex.test(trimmed)) return true;
 
   return false;
 }

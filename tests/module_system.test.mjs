@@ -108,6 +108,10 @@ describe('Deltax App - Module System & Event Handling', () => {
     assert.equal(res2.success, true);
     assert.equal(res2.result, 'Echo: fast response');
 
+    // Test that when prefix is '!', '/' is NOT matched
+    const resSlashWhenExclamation = await dispatcher.dispatch('/echo hello', '!');
+    assert.equal(resSlashWhenExclamation, false);
+
     // Test prefix mismatch
     const resMismatch = await dispatcher.dispatch('@deltaxapp echo test', '!');
     assert.equal(resMismatch, false);
