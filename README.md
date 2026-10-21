@@ -1,72 +1,85 @@
+<div align="center">
+
 # Deltax App
 
-Deltax App is a lightweight, high-performance Telegram bot engineered for Cloudflare Workers edge runtime. Powered by Hono and grammY, its core architecture is inspired by Caligo's modular command dispatcher pattern, redesigned for modern serverless environments.
+**Edge-native, modular Telegram Bot architecture built for Cloudflare Workers.**
+
+[![CI](https://github.com/DeltaUniverse/DeltaxApp/actions/workflows/ci.yml/badge.svg)](https://github.com/DeltaUniverse/DeltaxApp/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/DeltaUniverse/DeltaxApp/actions/workflows/codeql.yml/badge.svg)](https://github.com/DeltaUniverse/DeltaxApp/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Hono](https://img.shields.io/badge/Hono-E36002?logo=hono&logoColor=white)](https://hono.dev/)
+
+</div>
 
 ---
 
-## Highlights
+## Overview
 
-- **Single-Client Command Dispatcher**: Centralized pre-flight command router supporting dynamic prefixing (`/`, `!`), alias mapping, and owner-only authorization.
-- **Caligo-Inspired Modular Design**: Self-contained OOP modules inheriting from `BaseModule` with automatic discovery and zero manual wiring.
-- **Strict Event Filtering**: Pre-filters text commands to eliminate double execution and suppresses accidental triggers when mentioned by reply.
-- **Edge-Native & Serverless**: Sub-15ms cold starts on Cloudflare Workers edge network using Hono HTTP routing.
-- **D1 Persistent State**: Dynamic prefix configuration and bot settings persisted across edge isolates via Cloudflare D1.
-- **Non-Blocking Concurrency**: Webhook updates return `200 OK` instantaneously while heavy async jobs (media extraction, screenshots) run in the background via `ctx.waitUntil`.
-- **Type-Safe HTML**: Built-in tagged template literals with automatic entity escaping to guarantee crash-proof Telegram HTML rendering.
+Deltax App is an asynchronous Telegram Bot framework engineered specifically for serverless edge runtimes. By combining [Hono](https://hono.dev/) HTTP routing with [grammY](https://grammy.dev/) and Cloudflare D1, it delivers deterministic command dispatching, isolated module lifecycles, and sub-15ms global cold starts.
+
+The core architecture adopts the modular dispatch principles pioneered by [Caligo](https://github.com/TeamDelta/Caligo), refactored into a single-client, edge-native execution model.
 
 ---
 
-## Module Example
+## Architecture & Principles
 
-Adding a new feature is as simple as defining a class:
+### Deterministic Command Dispatching
+A centralized pre-flight interceptor enforces strict prefix resolution. When a custom prefix (e.g. `!`) is active, all foreign prefixes are rejected, eliminating execution ambiguity and duplicate webhook replies.
+
+### Modular Encapsulation
+Features are developed as self-contained classes inheriting from `BaseModule`. New modules placed in `src/modules/` are automatically discovered, compiled, and registered without manual wiring or registry updates.
+
+### Non-Blocking Edge Concurrency
+Incoming Telegram webhooks respond with `200 OK` instantaneously. Intensive operations—including remote media extraction, screenshot rendering, and database transactions—are scheduled non-blockingly using Cloudflare's `ExecutionContext.waitUntil()`.
+
+### Distributed Persistence Layer
+Dynamic runtime configurations and collection data are persisted across edge regions using Cloudflare D1. An in-memory cache layer avoids redundant network round-trips on warm isolates.
+
+### Type-Safe Presentation
+Out-of-the-box integration with tagged template literals (`html`...``) guarantees entity sanitization and prevents Telegram parse errors caused by unescaped dynamic input.
+
+---
+
+## Module Extension
 
 ```typescript
 import { BaseModule, type CommandContext } from './core';
 import { html } from './html';
 
-export class PingModule extends BaseModule {
-  readonly id = 'ping';
-  readonly name = 'Ping';
-  readonly description = 'Latency and status check';
+export class StatusModule extends BaseModule {
+  readonly id = 'status';
+  readonly name = 'Status';
+  readonly description = 'Health and latency metrics';
 
   public setup(): void {
     this.command(
-      ['ping', 'p'],
+      ['status', 'health'],
       async (ctx: CommandContext) => {
-        await ctx.respond(html`<b>Pong!</b> Active prefix: <code>${ctx.prefix}</code>`);
+        await ctx.respond(html`<b>Deltax App:</b> Operational.\nActive Prefix: <code>${ctx.prefix}</code>`);
       },
-      { description: 'Check bot latency' }
+      { description: 'Display service health' }
     );
   }
 }
 ```
 
-Modules placed in `src/modules/` are automatically discovered and registered on build.
-
 ---
 
-## Commands
-
-| Command | Arguments | Description |
-|---|---|---|
-| `/start` | None | Welcome banner and status |
-| `/dl` | `<url>` | Download media from Instagram, TikTok, or X (Twitter) |
-| `/ss` | `<url>` | Capture a high-resolution website screenshot |
-| `/setprefix` | `<prefix>` | Change the active command prefix (Owner only) |
-
----
-
-## Development
+## Getting Started
 
 ```bash
+# Clone the repository
+git clone git@github.com:DeltaUniverse/DeltaxApp.git
+cd DeltaxApp
+
 # Install dependencies
-npm install
+npm ci
 
-# Run test suite
-npm test
-
-# Type-check TypeScript
+# Validate types and run test suite
 npm run typecheck
+npm test
 
 # Deploy to Cloudflare Workers
 npm run deploy
@@ -77,7 +90,7 @@ npm run deploy
 ## Acknowledgements
 
 - Built with [grammY](https://grammy.dev/) and [Hono](https://hono.dev/).
-- Core modular architecture and command dispatching patterns inspired by [Caligo](https://github.com/TeamDelta/Caligo).
+- Command dispatch architecture inspired by [Caligo](https://github.com/TeamDelta/Caligo).
 
 ---
 
