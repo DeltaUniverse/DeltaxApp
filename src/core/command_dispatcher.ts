@@ -6,6 +6,7 @@
 
 import type { BotContext } from '../types';
 import { PrefixService, isOwner, escapeRegex } from './prefix_service';
+import { stripHtml } from '../html';
 
 export const HTML_TAGS = [
   '<blockquote',
@@ -133,7 +134,7 @@ export class CommandDispatcher {
             type: 'article',
             id: `guest_cmd_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
             title,
-            description: text.replace(/<[^>]*>/g, '').substring(0, 100),
+            description: stripHtml(text).substring(0, 100),
             input_message_content: {
               message_text: text,
               parse_mode: parseMode,

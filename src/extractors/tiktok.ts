@@ -6,8 +6,19 @@ export const TIKTOK_VM_REGEX =
 export const TIKTOK_URL_REGEX =
   /https?:\/\/(?:(?:www|m)\.)?(?:vx)?tiktok\.com\/(?:(?:embed|@[\w.-]*)\/)?(?:v(?:ideo)?|p(?:hoto)?)\/(?<id>\d+)/i;
 
-const TIKTOK_UNIVERSAL_REGEX =
-  /<script[^>]+\bid="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>(.*?)<\/script>/;
+function extractUniversalData(html: string): string | null {
+  const marker = 'id="__UNIVERSAL_DATA_FOR_REHYDRATION__"';
+  const markerPos = html.indexOf(marker);
+  if (markerPos === -1) return null;
+
+  const bodyStart = html.indexOf('>', markerPos);
+  if (bodyStart === -1) return null;
+
+  const scriptEnd = html.indexOf('</script', bodyStart);
+  if (scriptEnd === -1) return null;
+
+  return html.substring(bodyStart + 1, scriptEnd);
+}
 
 /**
  * Resolve vm.tiktok.com / vt.tiktok.com short URLs
@@ -149,10 +160,10 @@ async function extractViaWebRehydration(id: string): Promise<ExtractedResult | n
     if (!res.ok) return null;
     const html = await res.text();
 
-    const match = html.match(TIKTOK_UNIVERSAL_REGEX);
-    if (!match?.[1]) return null;
+    const rawJson = extractUniversalData(html);
+    if (!rawJson) return null;
 
-    const data = JSON.parse(match[1]);
+    const data = JSON.parse(rawJson);
     const itemInfo =
       data?.__DEFAULT_SCOPE__?.['webapp.video-detail']?.itemInfo?.itemStruct;
     if (!itemInfo) return null;

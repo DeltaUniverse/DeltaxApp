@@ -157,11 +157,20 @@ async function extractViaSSR(shortcode: string): Promise<ExtractedResult | null>
     if (!res.ok) return null;
     const html = await res.text();
 
-    const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
-    let match: RegExpExecArray | null;
+    let searchIndex = 0;
+    while (searchIndex < html.length) {
+      const scriptStart = html.indexOf('<script', searchIndex);
+      if (scriptStart === -1) break;
 
-    while ((match = scriptRegex.exec(html)) !== null) {
-      const content = match[1];
+      const scriptBodyStart = html.indexOf('>', scriptStart);
+      if (scriptBodyStart === -1) break;
+
+      const scriptEnd = html.indexOf('</script', scriptBodyStart);
+      if (scriptEnd === -1) break;
+
+      const content = html.substring(scriptBodyStart + 1, scriptEnd);
+      searchIndex = scriptEnd + 8;
+
       if (!content.includes('xig_polaris_media')) continue;
 
       try {

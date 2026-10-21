@@ -15,6 +15,41 @@ export function escapeHtml(value: unknown): string {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * Safely strips HTML tags repeatedly to prevent multi-character reintroduction vulnerabilities.
+ * Conforms to CodeQL / OWASP iterative sanitization recommendations.
+ */
+export function stripHtml(input: string): string {
+  if (!input) return '';
+  let sanitized = input;
+  let previous: string;
+  do {
+    previous = sanitized;
+    sanitized = sanitized.replace(/<[^<>]*>/g, '');
+  } while (sanitized !== previous);
+  return sanitized;
+}
+
+const HTML_ENTITY_MAP: Record<string, string> = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#39;': "'",
+  '&#x27;': "'",
+  '&#064;': '@',
+};
+
+/**
+ * Safely decodes standard HTML entities in a single linear pass to prevent double-escaping flaws.
+ */
+export function unescapeHtml(text: string): string {
+  if (!text) return '';
+  return text.replace(/&(?:amp|lt|gt|quot|#39|#x27|#064);/gi, (match) => {
+    return HTML_ENTITY_MAP[match.toLowerCase()] ?? match;
+  });
+}
+
 export class SafeHtml {
   constructor(private readonly content: string) {}
   toString(): string {

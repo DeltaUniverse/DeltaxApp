@@ -1,7 +1,7 @@
 import { InlineKeyboard } from 'grammy';
 import type { InputMediaPhoto, InputMediaVideo } from 'grammy/types';
 import { BaseModule, PrefixService, escapeRegex, type CommandContext } from '../core';
-import { html, code, link, rawHtml, escapeHtml } from '../html';
+import { html, code, link, rawHtml, escapeHtml, stripHtml, unescapeHtml } from '../html';
 import type { BotContext } from '../types';
 import { findSupportedUrl, extractMedia, type ExtractedResult } from '../extractors';
 
@@ -262,18 +262,9 @@ The post may be private, deleted, or restricted by the platform.`;
     }
     const metricsLine = metrics.length > 0 ? metrics.join('  ') : '';
 
-    // 2. Clean caption text
+    // 2. Clean caption text safely without incomplete sanitization or double-escaping
     const cleanCaption = result.caption
-      ? result.caption
-          .replace(/<[^>]*>/g, '')
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .replace(/&#x27;/gi, "'")
-          .replace(/&#064;/gi, '@')
-          .trim()
+      ? unescapeHtml(stripHtml(result.caption)).trim()
       : '';
 
     // 3. Author attribution & watermark footer

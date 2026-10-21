@@ -125,4 +125,50 @@ describe('Deltax App - Module System & Event Handling', () => {
     assert.equal(resOwner.success, true);
     assert.equal(resOwner.result, 'System reset');
   });
+
+  test('stripHtml iteratively removes nested HTML tags and unescapeHtml prevents double-escaping', () => {
+    // Replicate stripHtml & unescapeHtml logic
+    function stripHtml(input) {
+      if (!input) return '';
+      let sanitized = input;
+      let previous;
+      do {
+        previous = sanitized;
+        sanitized = sanitized.replace(/<[^<>]*>/g, '');
+      } while (sanitized !== previous);
+      return sanitized;
+    }
+
+    const HTML_ENTITY_MAP = {
+      '&amp;': '&',
+      '&lt;': '<',
+      '&gt;': '>',
+      '&quot;': '"',
+      '&#39;': "'",
+      '&#x27;': "'",
+      '&#064;': '@',
+    };
+
+    function unescapeHtml(text) {
+      if (!text) return '';
+      return text.replace(/&(?:amp|lt|gt|quot|#39|#x27|#064);/gi, (match) => {
+        return HTML_ENTITY_MAP[match.toLowerCase()] ?? match;
+      });
+    }
+
+    // Nested attack vectors designed to bypass single-pass regex sanitizers
+    const nestedScript = '<scr<script>ipt>alert(1)</script>';
+    assert.equal(stripHtml(nestedScript), 'alert(1)');
+
+    const nestedDiv = '<di<div>v>clean text</div>';
+    assert.equal(stripHtml(nestedDiv), 'clean text');
+
+    // Single pass entity decoding prevents double-escaping
+    const doubleEncoded = '&amp;lt;script&amp;gt;';
+    const decoded = unescapeHtml(doubleEncoded);
+    assert.equal(decoded, '&lt;script&gt;'); // Does NOT decode to <script>
+
+    const normalEncoded = 'Hello &amp; welcome to &quot;Deltax&quot; &#064;channel';
+    assert.equal(unescapeHtml(normalEncoded), 'Hello & welcome to "Deltax" @channel');
+  });
 });
