@@ -108,6 +108,7 @@ export class WallpaperModule extends BaseModule {
 
         const keyboard = new InlineKeyboard()
           .url('4K UHD Wallpaper', data.uhd_url || data.url)
+          .row()
           .url('Bing Story', data.copyright_link);
 
         // 1. Bot API 10.x Guest Mode response
