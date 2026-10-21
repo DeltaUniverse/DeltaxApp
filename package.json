@@ -1,0 +1,40 @@
+{
+  "name": "deltax-app",
+  "version": "1.0.0",
+  "description": "Deltax App - Modular Serverless Telegram Bot on Cloudflare Workers",
+  "type": "module",
+  "scripts": {
+    "generate:modules": "node scripts/auto_import.mjs",
+    "watch:modules": "node scripts/auto_import.mjs --watch",
+    "make:module": "node scripts/create_module.mjs",
+    "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
+    "clean": "node -e 'fs.rmSync(\"dist\", { recursive: true, force: true }); fs.rmSync(\".wrangler\", { recursive: true, force: true })'",
+    "predev": "node scripts/auto_import.mjs",
+    "dev": "wrangler dev",
+    "prebuild": "node scripts/auto_import.mjs",
+    "build": "node scripts/auto_import.mjs && wrangler deploy --dry-run --outdir dist",
+    "deploy": "node scripts/auto_import.mjs && wrangler deploy",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "keywords": [
+    "telegram",
+    "telegram-bot",
+    "grammy",
+    "cloudflare-workers",
+    "wrangler",
+    "serverless",
+    "modular",
+    "oop"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@grammyjs/parse-mode": "^2.3.0",
+    "grammy": "^1.46.0",
+    "hono": "^4.13.13"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261019.1",
+    "typescript": "^5.9.3"
+  }
+}

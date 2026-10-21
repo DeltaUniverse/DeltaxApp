@@ -1,0 +1,25 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "konawa-x",
+	"main": "src/index.ts",
+	"compatibility_date": "2024-11-01",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "deltaxapp_db",
+			"database_id": "80bc983c-c00c-4d34-8a49-c0c97b8144dc"
+		}
+	],
+	"vars": {
+		"OWNER_ID": "7492470603"
+	},
+	"placement": {
+		"mode": "smart"
+	},
+	"observability": {
+		"enabled": true
+	}
+}

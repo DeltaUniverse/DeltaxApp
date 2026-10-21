@@ -1,0 +1,11 @@
+# Telegram Bot Token from @BotFather
+BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ
+
+# Optional: Secret token for verifying webhook authenticity (X-Telegram-Bot-Api-Secret-Token)
+WEBHOOK_SECRET=my-custom-super-secret-token-12345
+
+# Optional: Custom Webhook URL
+# WEBHOOK_URL=https://your-worker.your-subdomain.workers.dev/webhook
+
+# Environment
+ENVIRONMENT=development

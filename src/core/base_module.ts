@@ -1,0 +1,131 @@
+/**
+ * Copyright (c) 2026 Deltax App
+ * Licensed under the MIT License.
+ * See LICENSE in the project root for license information.
+ */
+
+import { Composer, type MiddlewareFn, type FilterQuery } from 'grammy';
+import type { BotContext, CommandMeta, Env } from '../types';
+import type { CommandDispatcher, CommandHandler, CommandOptions } from './command_dispatcher';
+
+export abstract class BaseModule {
+  abstract readonly id: string;
+  abstract readonly name: string;
+  abstract readonly description: string;
+  readonly version: string = '1.0.0';
+  readonly enabled: boolean = true;
+
+  private readonly _composer: Composer<BotContext> = new Composer<BotContext>();
+  private readonly _commands: CommandMeta[] = [];
+  private _dispatcher?: CommandDispatcher;
+  private readonly _pendingCommands: Array<{
+    name: string | string[];
+    handler: CommandHandler;
+    options: CommandOptions;
+  }> = [];
+
+  public setDispatcher(dispatcher: CommandDispatcher): void {
+    this._dispatcher = dispatcher;
+    for (const pending of this._pendingCommands) {
+      this._dispatcher.register(pending.name, pending.handler, pending.options);
+    }
+    this._pendingCommands.length = 0;
+  }
+
+  public async init(_env: Env): Promise<void> {}
+
+  public abstract setup(): Promise<void> | void;
+
+  public getComposer(): Composer<BotContext> {
+    return this._composer;
+  }
+
+  public getCommands(): ReadonlyArray<CommandMeta> {
+    return this._commands;
+  }
+
+  protected command(
+    name: string | string[],
+    handler: CommandHandler,
+    optionsOrDesc?: string | CommandOptions
+  ): this {
+    const options: CommandOptions =
+      typeof optionsOrDesc === 'string'
+        ? { description: optionsOrDesc }
+        : optionsOrDesc || {};
+
+    const names = Array.isArray(name) ? name : [name];
+    for (const cmd of names) {
+      this._commands.push({
+        command: cmd.replace(/^\//, ''),
+        description: options.description || 'No description provided',
+        moduleId: this.id,
+        moduleName: this.name,
+      });
+    }
+
+    if (this._dispatcher) {
+      this._dispatcher.register(names, handler, options);
+    } else {
+      this._pendingCommands.push({ name: names, handler, options });
+    }
+
+    return this;
+  }
+
+  protected registerCommand(
+    name: string | string[],
+    handler: CommandHandler,
+    options: CommandOptions = {}
+  ): this {
+    return this.command(name, handler, options);
+  }
+
+  protected on(
+    filter: FilterQuery,
+    handler: (ctx: BotContext) => Promise<unknown> | unknown
+  ): this {
+    this._composer.on(filter, async (ctx, next) => {
+      try {
+        await handler(ctx as BotContext);
+      } catch (error) {
+        console.error(`[Module:${this.id}] Listener error on(${String(filter)}):`, error);
+      }
+      return next();
+    });
+    return this;
+  }
+
+  protected hears(
+    pattern: string | RegExp,
+    handler: (ctx: BotContext) => Promise<unknown> | unknown
+  ): this {
+    this._composer.hears(pattern, async (ctx) => {
+      try {
+        await handler(ctx);
+      } catch (error) {
+        console.error(`[Module:${this.id}] Hears error (${String(pattern)}):`, error);
+      }
+    });
+    return this;
+  }
+
+  protected callbackQuery(
+    trigger: string | RegExp,
+    handler: (ctx: BotContext) => Promise<unknown> | unknown
+  ): this {
+    this._composer.callbackQuery(trigger, async (ctx) => {
+      try {
+        await handler(ctx);
+      } catch (error) {
+        console.error(`[Module:${this.id}] CallbackQuery error (${String(trigger)}):`, error);
+      }
+    });
+    return this;
+  }
+
+  protected use(...middleware: MiddlewareFn<BotContext>[]): this {
+    this._composer.use(...middleware);
+    return this;
+  }
+}
