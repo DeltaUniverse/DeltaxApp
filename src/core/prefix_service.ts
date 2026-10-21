@@ -5,6 +5,7 @@
  */
 
 import type { Env, BotContext } from '../types';
+import { DatabaseService } from './database';
 
 let cachedBotPrefix: string | null = null;
 let cachedGuestPrefix: string | null = null;
@@ -30,18 +31,14 @@ export class PrefixService {
 
     if (env?.DB) {
       try {
-        const row = await env.DB.prepare(
-          'SELECT value FROM settings WHERE key = ?'
-        )
-          .bind('bot_prefix')
-          .first<{ value: string }>();
-
-        if (row?.value) {
-          cachedBotPrefix = row.value;
-          return row.value;
+        const db = new DatabaseService(env.DB);
+        const val = await db.getSetting('bot_prefix');
+        if (val) {
+          cachedBotPrefix = val;
+          return val;
         }
       } catch (err) {
-        console.warn('[PrefixService] Could not read bot_prefix from D1:', err);
+        console.warn('[PrefixService] Could not read bot_prefix from database:', err);
       }
     }
 
@@ -53,18 +50,14 @@ export class PrefixService {
 
     if (env?.DB) {
       try {
-        const row = await env.DB.prepare(
-          'SELECT value FROM settings WHERE key = ?'
-        )
-          .bind('guest_prefix')
-          .first<{ value: string }>();
-
-        if (row?.value) {
-          cachedGuestPrefix = row.value;
-          return row.value;
+        const db = new DatabaseService(env.DB);
+        const val = await db.getSetting('guest_prefix');
+        if (val) {
+          cachedGuestPrefix = val;
+          return val;
         }
       } catch (err) {
-        console.warn('[PrefixService] Could not read guest_prefix from D1:', err);
+        console.warn('[PrefixService] Could not read guest_prefix from database:', err);
       }
     }
 
@@ -74,22 +67,16 @@ export class PrefixService {
   public static async setBotPrefix(env: Env, prefix: string): Promise<void> {
     cachedBotPrefix = prefix;
     if (env.DB) {
-      await env.DB.prepare(
-        'INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
-      )
-        .bind('bot_prefix', prefix, Date.now())
-        .run();
+      const db = new DatabaseService(env.DB);
+      await db.setSetting('bot_prefix', prefix);
     }
   }
 
   public static async setGuestPrefix(env: Env, prefix: string): Promise<void> {
     cachedGuestPrefix = prefix;
     if (env.DB) {
-      await env.DB.prepare(
-        'INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
-      )
-        .bind('guest_prefix', prefix, Date.now())
-        .run();
+      const db = new DatabaseService(env.DB);
+      await db.setSetting('guest_prefix', prefix);
     }
   }
 

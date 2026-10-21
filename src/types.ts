@@ -6,6 +6,7 @@
 
 import type { Context } from 'grammy';
 import type { BaseModule } from './core/base_module';
+import type { DatabaseService } from './core/database';
 
 export interface Env {
   BOT_TOKEN: string;
@@ -36,6 +37,7 @@ export interface ModuleInfo {
 
 export interface BotContext extends Context {
   env: Env;
+  db: DatabaseService;
   request?: Request;
   cf?: Record<string, unknown>;
   isColdStart?: boolean;

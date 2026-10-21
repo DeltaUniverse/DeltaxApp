@@ -8,6 +8,7 @@ export { BaseModule } from './base_module';
 export { ModuleManager, type ModuleConstructor } from './module_manager';
 export { TelegramBotServer } from './telegram_bot';
 export { PrefixService, isOwner, DEFAULT_OWNER_ID, escapeRegex } from './prefix_service';
+export { DatabaseService, Collection, type DatabaseRecord } from './database';
 export {
   CommandDispatcher,
   type CommandContext,

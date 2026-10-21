@@ -8,6 +8,7 @@ import { Bot, GrammyError, HttpError } from 'grammy';
 import { FormattedString } from '@grammyjs/parse-mode';
 import { ModuleManager, type ModuleConstructor } from './module_manager';
 import { CommandDispatcher } from './command_dispatcher';
+import { DatabaseService } from './database';
 import type { BaseModule } from './base_module';
 import type { BotContext, Env } from '../types';
 import { ROUTES, BOT_CONFIG, HTTP_HEADERS } from '../config';
@@ -16,6 +17,7 @@ export class TelegramBotServer {
   private readonly _bot: Bot<BotContext>;
   private readonly _commandDispatcher: CommandDispatcher;
   private readonly _moduleManager: ModuleManager;
+  private _db?: DatabaseService;
   private _isInitialized: boolean = false;
   private readonly _startTime: number = Date.now();
 
@@ -75,6 +77,7 @@ export class TelegramBotServer {
       if (this._currentEnv) {
         ctx.env = this._currentEnv;
       }
+      ctx.db = this._db || new DatabaseService(this._currentEnv?.DB);
       if (this._currentRequest) {
         ctx.request = this._currentRequest;
         ctx.cf = (this._currentRequest as unknown as { cf?: Record<string, unknown> }).cf;
@@ -137,6 +140,10 @@ export class TelegramBotServer {
     return this._commandDispatcher;
   }
 
+  public get db(): DatabaseService | undefined {
+    return this._db;
+  }
+
   public registerModules(modules: (BaseModule | ModuleConstructor)[]): this {
     this._moduleManager.registerAll(modules);
     return this;
@@ -191,6 +198,13 @@ export class TelegramBotServer {
     this._currentExecutionCtx = executionCtx;
     this._currentIsColdStart = this._isColdStart;
     this._isColdStart = false;
+
+    if (!this._db || this._db.raw !== env.DB) {
+      this._db = new DatabaseService(env.DB);
+      if (executionCtx && typeof executionCtx.waitUntil === 'function') {
+        executionCtx.waitUntil(this._db.init());
+      }
+    }
 
     await this.initialize(env, executionCtx);
 
