@@ -179,51 +179,30 @@ export class CommandDispatcher {
     const trimmed = text.trim();
     if (!trimmed) return null;
 
-    // Strict prefix enforcement:
-    // When activePrefix is custom (e.g. '!'), ONLY that prefix is accepted.
-    // Fallback '/' is only permitted for the built-in Telegram UI /start button.
-    const prefixes = [activePrefix];
-    const isTelegramStartButton =
-      activePrefix !== '/' &&
-      (/^\/start(?:@\w+)?(?:\s+|$)/i.test(trimmed) ||
-        new RegExp(`^@${botUsername}\\s+/start(?:\\s+|$)`, 'i').test(trimmed));
+    // Strict prefix enforcement: ONLY the configured activePrefix is parsed (no fallback, no exceptions)
+    const p = activePrefix || '/';
+    const escP = escapeRegex(p);
 
-    if (isTelegramStartButton) {
-      prefixes.push('/');
+    const directMatch = trimmed.match(
+      new RegExp(`^${escP}([a-zA-Z0-9_]+)(?:@${botUsername})?(?:\\s+([\\s\\S]*)|$)`, 'i')
+    );
+    if (directMatch) {
+      return {
+        commandName: directMatch[1],
+        input: (directMatch[2] || '').trim(),
+        prefixUsed: p,
+      };
     }
 
-    for (const p of prefixes) {
-      const escP = escapeRegex(p);
-
-      const directMatch = trimmed.match(
-        new RegExp(`^${escP}([a-zA-Z0-9_]+)(?:@${botUsername})?(?:\\s+([\\s\\S]*)|$)`, 'i')
-      );
-      if (directMatch) {
-        const cmdName = directMatch[1].toLowerCase();
-        if (p === '/' && activePrefix !== '/' && cmdName !== 'start') {
-          continue;
-        }
-        return {
-          commandName: directMatch[1],
-          input: (directMatch[2] || '').trim(),
-          prefixUsed: p,
-        };
-      }
-
-      const mentionMatch = trimmed.match(
-        new RegExp(`^@${botUsername}\\s+${escP}([a-zA-Z0-9_]+)(?:\\s+([\\s\\S]*)|$)`, 'i')
-      );
-      if (mentionMatch) {
-        const cmdName = mentionMatch[1].toLowerCase();
-        if (p === '/' && activePrefix !== '/' && cmdName !== 'start') {
-          continue;
-        }
-        return {
-          commandName: mentionMatch[1],
-          input: (mentionMatch[2] || '').trim(),
-          prefixUsed: p,
-        };
-      }
+    const mentionMatch = trimmed.match(
+      new RegExp(`^@${botUsername}\\s+${escP}([a-zA-Z0-9_]+)(?:\\s+([\\s\\S]*)|$)`, 'i')
+    );
+    if (mentionMatch) {
+      return {
+        commandName: mentionMatch[1],
+        input: (mentionMatch[2] || '').trim(),
+        prefixUsed: p,
+      };
     }
 
     return null;
