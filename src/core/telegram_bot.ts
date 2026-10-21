@@ -278,6 +278,7 @@ export class TelegramBotServer {
 
     const responseBody = {
       status: 'online',
+      version: BOT_CONFIG.VERSION,
       bot: {
         id: botInfo?.id,
         username: botInfo?.username,

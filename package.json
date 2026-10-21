@@ -1,6 +1,6 @@
 {
   "name": "deltax-app",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Deltax App - Modular Serverless Telegram Bot on Cloudflare Workers",
   "type": "module",
   "scripts": {
