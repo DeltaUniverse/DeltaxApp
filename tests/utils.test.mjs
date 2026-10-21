@@ -367,4 +367,63 @@ describe('Deltax App - Utilities (Telegram, Media, Misc)', () => {
       assert.equal(truncateCaption(shortText, 1024, 50), 'Short text');
     });
   });
+
+  describe('Bing Wallpaper Utilities', () => {
+    const BING_RESOLUTIONS = {
+      '1366': '1366x768.jpg',
+      '1920': '1920x1080.jpg',
+      '3840': 'UHD.jpg',
+      'UHD': 'UHD.jpg',
+      'uhd': 'UHD.jpg',
+      '4k': 'UHD.jpg',
+      '4K': 'UHD.jpg',
+      '1080x1920': '1080x1920.jpg',
+    };
+
+    function resolveResolutionSuffix(resolution = '1920') {
+      const trimmed = resolution.trim();
+      const found = BING_RESOLUTIONS[trimmed] || BING_RESOLUTIONS[trimmed.toUpperCase()];
+      if (found) return found;
+      return '1920x1080.jpg';
+    }
+
+    test('resolveResolutionSuffix maps shorthand and standard resolutions', () => {
+      assert.equal(resolveResolutionSuffix('UHD'), 'UHD.jpg');
+      assert.equal(resolveResolutionSuffix('4k'), 'UHD.jpg');
+      assert.equal(resolveResolutionSuffix('1920'), '1920x1080.jpg');
+      assert.equal(resolveResolutionSuffix('1080x1920'), '1080x1920.jpg');
+      assert.equal(resolveResolutionSuffix('unknown'), '1920x1080.jpg');
+    });
+
+    test('parses wallpaper command arguments correctly', () => {
+      function parseWallpaperArgs(args) {
+        const result = {};
+        for (const arg of args) {
+          const raw = arg.trim();
+          const lower = raw.toLowerCase();
+          if (lower === 'random') {
+            result.index = 'random';
+            continue;
+          }
+          if (lower === 'uhd' || lower === '4k' || lower === '1920' || lower === '1366') {
+            result.resolution = raw;
+            continue;
+          }
+          if (/^[0-7]$/.test(raw)) {
+            result.index = parseInt(raw, 10);
+            continue;
+          }
+          if (['zh-cn', 'en-us', 'ja-jp'].includes(lower)) {
+            result.mkt = raw;
+            continue;
+          }
+        }
+        return result;
+      }
+
+      assert.deepEqual(parseWallpaperArgs(['UHD', 'en-US']), { resolution: 'UHD', mkt: 'en-US' });
+      assert.deepEqual(parseWallpaperArgs(['random']), { index: 'random' });
+      assert.deepEqual(parseWallpaperArgs(['2']), { index: 2 });
+    });
+  });
 });
