@@ -7,7 +7,7 @@ import { getUserMention, getCallerUser, findSupportedUrl } from '../utils';
 
 /**
  * StartModule provides the /start greeting and status for Delta,
- * supporting both regular chat messages and Bot API 10.x Guest Mode.
+ * supporting regular chat messages.
  */
 export class StartModule extends BaseModule {
   readonly id = 'start';
@@ -46,7 +46,7 @@ export class StartModule extends BaseModule {
       'Start Delta and display greeting'
     );
 
-    // 2. Bot API 10.x Guest Mode (/start or mention without download link)
+    // 2. Fallback mention without download link
     this.on('guest_message:text', async (ctx: BotContext) => {
       const text = ctx.msg?.text || '';
       const replyMsg = (ctx.msg as any)?.reply_to_message;

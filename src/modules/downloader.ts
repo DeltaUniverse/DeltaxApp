@@ -155,7 +155,7 @@ Send or reply to a link from:
       }
     });
 
-    // 3. Raw mention without command in guest mode: "@deltaxapp <link>" (only if NOT a reply)
+    // 3. Raw mention without command: "@deltaxapp <link>" (only if NOT a reply)
     this.on('guest_message:text', async (ctx: BotContext) => {
       const text = ctx.msg?.text || '';
       const replyMsg = (ctx.msg as any)?.reply_to_message;
@@ -176,7 +176,7 @@ Send or reply to a link from:
   /**
    * Unified media processor and uploader:
    * Supports native multi-item Telegram albums (sendMediaGroup) for carousels & slides
-   * across direct chat, group chats, and Bot API 10.x Guest Mode.
+   * across direct chat and group chats.
    */
   private async handleDownload(
     ctx: BotContext,
@@ -274,7 +274,7 @@ The post may be private, deleted, or restricted by the platform.`;
       return parts.join('\n\n');
     };
 
-    // 1. Bot API 10.x Guest Mode: Deliver native rich media (Slideshow / Figure) via rich_message
+    // 1. Deliver native rich media (Slideshow / Figure) via rich_message
     if (isGuestQuery) {
       const blocks: string[] = [];
 

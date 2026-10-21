@@ -55,7 +55,7 @@ function parseWallpaperArgs(args: string[]): {
 
 /**
  * WallpaperModule delivers daily Bing wallpapers with high-resolution 4K/UHD support,
- * multi-region markets, and archive history across direct chat and Bot API 10.x Guest Mode.
+ * multi-region markets, and archive history.
  * Sourced from the TimothyYe/bing-wallpaper architecture.
  */
 export class WallpaperModule extends BaseModule {
@@ -111,7 +111,6 @@ export class WallpaperModule extends BaseModule {
           .row()
           .url('Bing Story', data.copyright_link);
 
-        // 1. Bot API 10.x Guest Mode response
         if (guestMode) {
           await ctx.answerGuestQuery({
             type: 'photo',
@@ -143,7 +142,7 @@ export class WallpaperModule extends BaseModule {
           return;
         }
 
-        // 2. Standard Chat Mode
+        // Standard Chat Mode
         if (!chatId) return;
 
         try {

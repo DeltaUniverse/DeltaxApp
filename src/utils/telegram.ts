@@ -39,14 +39,14 @@ export function getUserMention(user?: UserLike | null): string {
 }
 
 /**
- * Resolves the caller user object from regular chat context or Bot API 10.x Guest Mode.
+ * Resolves the caller user object from chat context.
  */
 export function getCallerUser(ctx: any): UserLike | undefined {
   return ctx?.msg?.guest_bot_caller_user || ctx?.from;
 }
 
 /**
- * Resolves the target chat ID across direct chat, groups, and Bot API 10.x Guest Mode.
+ * Resolves the target chat ID across direct chat and groups.
  */
 export function getChatId(ctx: any): number | string | undefined {
   return (
@@ -56,9 +56,6 @@ export function getChatId(ctx: any): number | string | undefined {
   );
 }
 
-/**
- * Checks whether an incoming context is operating in Bot API 10.x Guest Mode.
- */
 export function isGuestMode(ctx: any): boolean {
   return Boolean(
     ctx?.msg?.guest_bot_caller_user ||

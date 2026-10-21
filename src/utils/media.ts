@@ -51,7 +51,7 @@ export function createTelegramAlbum(
 }
 
 /**
- * Generates Bot API 10.x Guest Mode rich media HTML tags:
+ * Generates rich media HTML tags:
  * Single item -> `<figure><img ...></figure>` or `<figure><video ...></figure>`
  * Multi item  -> `<tg-slideshow>...</tg-slideshow>`
  */

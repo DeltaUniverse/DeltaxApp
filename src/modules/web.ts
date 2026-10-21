@@ -174,7 +174,6 @@ async function fetchScreenshot(
  * WebModule provides website screenshot capabilities via Linkdr:
  * - Supports direct arguments or replying to any message containing a link
  * - Dynamic D1 prefixes (e.g. /ss, !ss, @bot !ss, @bot ss)
- * - Bot API 10.x Guest Mode with inline URL button
  */
 export class WebModule extends BaseModule {
   readonly id = 'web';
