@@ -16,6 +16,9 @@
     "deploy": "node scripts/auto_import.mjs && wrangler deploy",
     "test": "node --test tests/*.test.mjs"
   },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "keywords": [
     "telegram",
     "telegram-bot",

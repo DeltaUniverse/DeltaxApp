@@ -1,6 +1,7 @@
 import { test, describe, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,9 +13,11 @@ describe('Deltax App - Serverless Telegram Bot Worker', () => {
   let worker;
 
   before(async () => {
-    // Ensure dist is built
-    execSync('npm run build', { cwd: rootDir, stdio: 'pipe' });
-    const module = await import(path.resolve(rootDir, 'dist/index.js'));
+    const distFile = path.resolve(rootDir, 'dist/index.js');
+    if (!fs.existsSync(distFile)) {
+      execSync('npm run build', { cwd: rootDir, stdio: 'pipe' });
+    }
+    const module = await import(distFile);
     worker = module.default;
   });
 
