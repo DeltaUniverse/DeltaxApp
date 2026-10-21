@@ -1,20 +1,11 @@
 import type { ExtractedResult, ExtractedMediaItem } from './types';
+import { randomAlphaNumeric, parseKNumber } from '../misc';
 
 export const INSTAGRAM_SHARE_REGEX =
   /https?:\/\/(?:www\.)?(?:dd)?instagram\.com\/share\/(?:(?:reels?|video|s|p)\/)?(?<id>[^\/\?\s]+)/i;
 
 export const INSTAGRAM_URL_REGEX =
   /https?:\/\/(?:www\.)?(?:dd)?instagram\.com\/(?:reels?|p|tv)\/(?<id>[a-zA-Z0-9_-]+)/i;
-
-function randomAlphaNumeric(len: number): string {
-  const chars =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let res = '';
-  for (let i = 0; i < len; i++) {
-    res += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return res;
-}
 
 function findObjectWithKey(obj: any, targetKey: string, depth = 0): any {
   if (!obj || typeof obj !== 'object' || depth > 12) return null;
@@ -29,21 +20,6 @@ function findObjectWithKey(obj: any, targetKey: string, depth = 0): any {
     }
   }
   return null;
-}
-
-function parseKNumber(str: string): number | undefined {
-  if (!str) return undefined;
-  str = str.trim().toUpperCase();
-  if (str.endsWith('M')) {
-    const n = parseFloat(str.slice(0, -1).replace(/,/g, ''));
-    return isNaN(n) ? undefined : Math.round(n * 1_000_000);
-  }
-  if (str.endsWith('K')) {
-    const n = parseFloat(str.slice(0, -1).replace(/,/g, ''));
-    return isNaN(n) ? undefined : Math.round(n * 1_000);
-  }
-  const n = parseFloat(str.replace(/,/g, ''));
-  return isNaN(n) ? undefined : n;
 }
 
 /**

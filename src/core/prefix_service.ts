@@ -6,6 +6,7 @@
 
 import type { Env, BotContext } from '../types';
 import { DatabaseService } from './database';
+import { escapeRegex } from '../utils/misc';
 
 let cachedBotPrefix: string | null = null;
 let cachedGuestPrefix: string | null = null;
@@ -14,9 +15,7 @@ export const DEFAULT_BOT_PREFIX = '/';
 export const DEFAULT_GUEST_PREFIX = '/';
 export const DEFAULT_OWNER_ID = 7492470603;
 
-export function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+export { escapeRegex };
 
 export function isOwner(ctx: BotContext): boolean {
   const caller = (ctx.msg as any)?.guest_bot_caller_user || ctx.from;

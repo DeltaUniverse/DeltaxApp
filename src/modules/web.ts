@@ -2,58 +2,7 @@ import { InlineKeyboard, InputFile } from 'grammy';
 import { BaseModule, PrefixService, isOwner, type CommandContext } from '../core';
 import { escapeHtml } from '../html';
 import type { BotContext } from '../types';
-
-/**
- * Escapes characters for regex safety
- */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
- * Extracts raw text and entity URLs from a Telegram message
- */
-function getMessageUrlsAndText(msg?: any): { text: string; entityUrls: string[] } {
-  if (!msg) return { text: '', entityUrls: [] };
-
-  const text = msg.text || msg.caption || '';
-  const entityUrls: string[] = [];
-
-  const allEntities = [...(msg.entities || []), ...(msg.caption_entities || [])];
-  for (const ent of allEntities) {
-    if (ent.type === 'text_link' && ent.url) {
-      entityUrls.push(ent.url);
-    } else if (ent.type === 'url' && typeof ent.offset === 'number' && typeof ent.length === 'number') {
-      const urlText = text.substring(ent.offset, ent.offset + ent.length);
-      if (urlText) entityUrls.push(urlText);
-    }
-  }
-
-  return { text, entityUrls };
-}
-
-/**
- * Parses and validates domain and URL string
- */
-function parseDomainAndUrl(raw: string): { url: string; domain: string } | null {
-  if (!raw) return null;
-  let targetUrl = raw.trim();
-  targetUrl = targetUrl.replace(/[.,;:!?)]+$/, '');
-
-  if (!/^https?:\/\//i.test(targetUrl)) {
-    targetUrl = `https://${targetUrl}`;
-  }
-
-  try {
-    const parsed = new URL(targetUrl);
-    if (!['http:', 'https:'].includes(parsed.protocol)) return null;
-    if (!parsed.hostname || !parsed.hostname.includes('.')) return null;
-    const domain = parsed.hostname.replace(/^www\./i, '');
-    return { url: targetUrl, domain };
-  } catch {
-    return null;
-  }
-}
+import { escapeRegex, parseDomainAndUrl, extractMessageUrls } from '../utils';
 
 /**
  * Extracts target URL and domain from command text or replied message
@@ -99,7 +48,7 @@ export function extractTargetUrl(
 
   // 5. If no URL in arguments, inspect the replied message!
   if (replyMsg) {
-    const { text: replyText, entityUrls } = getMessageUrlsAndText(replyMsg);
+    const { text: replyText, entityUrls } = extractMessageUrls(replyMsg);
 
     // 5a. Check text_link / url entities in replied message
     for (const u of entityUrls) {

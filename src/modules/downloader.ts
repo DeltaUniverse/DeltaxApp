@@ -1,9 +1,20 @@
 import { InlineKeyboard } from 'grammy';
-import type { InputMediaPhoto, InputMediaVideo } from 'grammy/types';
-import { BaseModule, PrefixService, escapeRegex, type CommandContext } from '../core';
+import { BaseModule, PrefixService, type CommandContext } from '../core';
 import { html, code, link, rawHtml, escapeHtml, stripHtml, unescapeHtml } from '../html';
 import type { BotContext } from '../types';
-import { findSupportedUrl, extractMedia, type ExtractedResult } from '../extractors';
+import {
+  formatCount,
+  escapeRegex,
+  extractMessageUrls,
+  getChatId,
+  buildGuestMediaContainer,
+  chunkMediaItems,
+  createTelegramAlbum,
+  truncateCaption,
+  findSupportedUrl,
+  extractMedia,
+  type ExtractedResult,
+} from '../utils';
 
 /**
  * Checks if a message attempts an un-prefixed download command (e.g. "@deltaxapp dl ...", "dl ...")
@@ -86,21 +97,11 @@ export function extractDownloadTarget(
 
   // 3. If no URL in text, inspect replied message
   if (replyMsg) {
-    const replyText =
-      (replyMsg && 'text' in replyMsg ? replyMsg.text : '') ||
-      (replyMsg && 'caption' in replyMsg ? replyMsg.caption : '') ||
-      '';
+    const { text: replyText, entityUrls } = extractMessageUrls(replyMsg);
 
-    const allEntities = [
-      ...(replyMsg.entities || []),
-      ...(replyMsg.caption_entities || []),
-    ];
-
-    for (const ent of allEntities) {
-      if (ent.type === 'text_link' && ent.url) {
-        const detected = findSupportedUrl(ent.url);
-        if (detected) return detected;
-      }
+    for (const u of entityUrls) {
+      const detected = findSupportedUrl(u);
+      if (detected) return detected;
     }
 
     const detectedInReply = findSupportedUrl(replyText);
@@ -108,18 +109,6 @@ export function extractDownloadTarget(
   }
 
   return null;
-}
-
-/**
- * DownloaderModule provides guest extraction and direct delivery of
- * Instagram, TikTok, and X (Twitter) media.
- */
-function formatCount(val: number | string): string {
-  const n = typeof val === 'string' ? parseFloat(val) : val;
-  if (isNaN(n)) return String(val);
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
-  return String(n);
 }
 
 export class DownloaderModule extends BaseModule {
@@ -201,10 +190,7 @@ Send or reply to a link from:
           ? 'TikTok'
           : 'X (Twitter)';
 
-    const chatId =
-      ctx.chat?.id ||
-      ctx.msg?.chat?.id ||
-      (ctx.msg as any)?.guest_bot_caller_chat?.id;
+    const chatId = getChatId(ctx);
 
     const replyMessageId = ctx.msg?.message_id;
     const isGuestQuery = Boolean((ctx.msg as any)?.guest_query_id);
@@ -311,25 +297,7 @@ The post may be private, deleted, or restricted by the platform.`;
       // 4. Copyright quote with extra spacing
       blocks.push(`<blockquote>${brandLine}</blockquote>`);
 
-      let mediaContainer: string;
-      if (result.items.length === 1) {
-        const item = result.items[0];
-        const mediaTag =
-          item.type === 'video'
-            ? `<video src="${escapeHtml(item.url)}"></video>`
-            : `<img src="${escapeHtml(item.url)}" />`;
-
-        mediaContainer = `<figure>${mediaTag}</figure>`;
-      } else {
-        const mediaTags = result.items.map((item) =>
-          item.type === 'video'
-            ? `<video src="${escapeHtml(item.url)}"></video>`
-            : `<img src="${escapeHtml(item.url)}" />`
-        );
-
-        mediaContainer = `<tg-slideshow>\n${mediaTags.join('\n')}\n</tg-slideshow>`;
-      }
-
+      const mediaContainer = buildGuestMediaContainer(result.items);
       const buttonRow = `<tg-button-row align="center">\n  <tg-button type="url" style="primary" url="${escapeHtml(url)}">Original Post</tg-button>\n</tg-button-row>`;
       const richHtml = [mediaContainer, ...blocks, buttonRow].join('\n\n');
 
@@ -354,11 +322,7 @@ The post may be private, deleted, or restricted by the platform.`;
       (authorLine ? authorLine.length + 2 : 0) +
       brandLine.length +
       95;
-    const maxBodyLen = Math.max(200, 1024 - overhead);
-    const standardBody =
-      cleanCaption.length > maxBodyLen
-        ? cleanCaption.slice(0, maxBodyLen).trimEnd() + '...'
-        : cleanCaption;
+    const standardBody = truncateCaption(cleanCaption, 1024, overhead);
 
     const caption = buildStandardCaption(standardBody);
     const keyboard = new InlineKeyboard().url('Original Post', url);
@@ -389,10 +353,9 @@ The post may be private, deleted, or restricted by the platform.`;
       } else {
         // Native Telegram ALBUM (Media Group) delivery
         // Telegram sendMediaGroup supports albums between 2 and 10 items
-        const totalChunks = Math.ceil(result.items.length / 10);
-        for (let i = 0; i < result.items.length; i += 10) {
-          const chunk = result.items.slice(i, i + 10);
-          const chunkIdx = Math.floor(i / 10);
+        const chunks = chunkMediaItems(result.items, 10);
+        for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+          const chunk = chunks[chunkIdx];
 
           if (chunk.length === 1) {
             // Standalone leftover item
@@ -403,25 +366,7 @@ The post may be private, deleted, or restricted by the platform.`;
               await ctx.api.sendPhoto(chatId, item.url);
             }
           } else {
-            const group = chunk.map((item, idx) => {
-              const isFirstItem = chunkIdx === 0 && idx === 0;
-              if (item.type === 'video') {
-                const videoMedia: InputMediaVideo = {
-                  type: 'video',
-                  media: item.url,
-                  caption: isFirstItem ? caption : undefined,
-                  parse_mode: 'HTML',
-                };
-                return videoMedia;
-              }
-              const photoMedia: InputMediaPhoto = {
-                type: 'photo',
-                media: item.url,
-                caption: isFirstItem ? caption : undefined,
-                parse_mode: 'HTML',
-              };
-              return photoMedia;
-            });
+            const group = createTelegramAlbum(chunk, caption, chunkIdx === 0);
 
             await ctx.api.sendMediaGroup(chatId, group, {
               reply_parameters:

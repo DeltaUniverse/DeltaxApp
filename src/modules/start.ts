@@ -1,33 +1,9 @@
 import { InlineKeyboard } from 'grammy';
 import { BaseModule, PrefixService, type CommandContext } from '../core';
-import { escapeHtml } from '../html';
 import { isScreenshotRequest, isSetPrefixRequest } from './web';
 import { isUnprefixedDownloadCommand } from './downloader';
 import type { BotContext } from '../types';
-import { findSupportedUrl } from '../extractors';
-
-/**
- * Builds an HTML user mention:
- * - Uses <a href="tg://user?id=...">first_name</a> if first_name exists
- * - Falls back to @username if no first_name
- * - Falls back to <a href="tg://user?id=...">User</a> if no username
- */
-function getUserMention(user?: { id?: number; first_name?: string; username?: string }): string {
-  if (!user) return 'there';
-  if (user.first_name && user.id) {
-    return `<a href="tg://user?id=${user.id}">${escapeHtml(user.first_name)}</a>`;
-  }
-  if (user.username) {
-    return `@${escapeHtml(user.username)}`;
-  }
-  if (user.first_name) {
-    return escapeHtml(user.first_name);
-  }
-  if (user.id) {
-    return `<a href="tg://user?id=${user.id}">User</a>`;
-  }
-  return 'there';
-}
+import { getUserMention, getCallerUser, findSupportedUrl } from '../utils';
 
 /**
  * StartModule provides the /start greeting and status for Delta,
@@ -102,7 +78,7 @@ export class StartModule extends BaseModule {
         }
       }
 
-      const caller = (ctx.msg as any)?.guest_bot_caller_user || ctx.from;
+      const caller = getCallerUser(ctx);
       const callerMention = getUserMention(caller);
       const rawTitleName = caller?.first_name || (caller?.username ? `@${caller.username}` : 'there');
 

@@ -7,24 +7,9 @@
 import type { BotContext } from '../types';
 import { PrefixService, isOwner, escapeRegex } from './prefix_service';
 import { stripHtml } from '../html';
+import { HTML_TAGS, hasHtmlTags } from '../utils/telegram';
 
-export const HTML_TAGS = [
-  '<blockquote',
-  '<b>',
-  '<code>',
-  '<pre',
-  '<i>',
-  '<spoiler',
-  '<u>',
-  '<s>',
-  '<a ',
-];
-
-export function hasHtmlTags(text: string): boolean {
-  if (!text) return false;
-  const lower = text.toLowerCase();
-  return HTML_TAGS.some((tag) => lower.includes(tag));
-}
+export { HTML_TAGS, hasHtmlTags };
 
 export interface CommandOptions {
   description?: string;
