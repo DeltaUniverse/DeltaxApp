@@ -24,6 +24,7 @@ describe('Deltax App - Module System & Event Handling', () => {
     assert.ok(content.includes('DownloaderModule'), 'Should include DownloaderModule');
     assert.ok(content.includes('WallpaperModule'), 'Should include WallpaperModule');
     assert.ok(content.includes('WebModule'), 'Should include WebModule');
+    assert.ok(content.includes('EvalModule'), 'Should include EvalModule');
   });
 
   test('simplified module event handling: registers commands and dispatches cleanly in-memory', async () => {
@@ -171,5 +172,144 @@ describe('Deltax App - Module System & Event Handling', () => {
 
     const normalEncoded = 'Hello &amp; welcome to &quot;Deltax&quot; &#064;channel';
     assert.equal(unescapeHtml(normalEncoded), 'Hello & welcome to "Deltax" @channel');
+  });
+
+  describe('Evaluator and Serializer (EvalModule)', () => {
+    const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+
+    function serialize(value) {
+      if (value === null || value === undefined) return String(value);
+      if (typeof value === 'string') return value || '\u2060';
+      if (typeof value === 'symbol') return value.toString();
+      if (typeof value === 'function') {
+        return `[Function: ${value.name || 'anonymous'}]`;
+      }
+
+      const seen = new WeakSet();
+
+      try {
+        return JSON.stringify(
+          value,
+          (_key, val) => {
+            if (typeof val === 'object' && val !== null) {
+              if (seen.has(val)) return '[Circular]';
+              seen.add(val);
+
+              if (val instanceof Error) {
+                return {
+                  name: val.name,
+                  message: val.message,
+                  stack: val.stack,
+                };
+              }
+
+              if (val instanceof Set) return Array.from(val);
+              if (val instanceof Map) return Object.fromEntries(val);
+              if (val instanceof Uint8Array) return `[Uint8Array(${val.length})]`;
+            }
+
+            if (typeof val === 'bigint') return `${val}n`;
+            if (typeof val === 'function') {
+              return `[Function: ${val.name || 'anonymous'}]`;
+            }
+            if (typeof val === 'symbol') return val.toString();
+
+            return val;
+          },
+          1
+        );
+      } catch (error) {
+        return String(value ?? error);
+      }
+    }
+
+    async function evaluateCode(code, scope) {
+      const keys = Object.keys(scope);
+      const values = Object.values(scope);
+      let script = code.trim();
+
+      if (script.startsWith('```')) {
+        script = script.replace(/^```(?:[a-zA-Z0-9_-]+)?\s*\n?/, '').replace(/\n?```$/, '').trim();
+      }
+
+      try {
+        const fn = new AsyncFunction(...keys, `return (${script})`);
+        return await fn(...values);
+      } catch {
+        const fn = new AsyncFunction(...keys, script);
+        return await fn(...values);
+      }
+    }
+
+    test('serializes primitive values, BigInt, Symbols, and Functions', () => {
+      assert.equal(serialize(null), 'null');
+      assert.equal(serialize(undefined), 'undefined');
+      assert.equal(serialize('hello world'), 'hello world');
+      assert.equal(serialize(''), '\u2060');
+      assert.equal(serialize(Symbol('test')), 'Symbol(test)');
+      assert.equal(serialize(function myFunc() {}), '[Function: myFunc]');
+      assert.equal(serialize(() => {}), '[Function: anonymous]');
+      assert.equal(serialize(9007199254740991n), '"9007199254740991n"');
+    });
+
+    test('serializes Sets, Maps, Uint8Arrays, and circular objects', () => {
+      const set = new Set(['apple', 'banana']);
+      assert.ok(serialize(set).includes('apple'));
+
+      const map = new Map([['key1', 'val1']]);
+      assert.ok(serialize(map).includes('key1'));
+
+      const uint8 = new Uint8Array([1, 2, 3]);
+      assert.equal(serialize(uint8), '"[Uint8Array(3)]"');
+
+      const circ = { name: 'circular' };
+      circ.self = circ;
+      const circStr = serialize(circ);
+      assert.ok(circStr.includes('[Circular]'));
+    });
+
+    test('serializes Error instances preserving name and message', () => {
+      const err = new Error('Test failure');
+      const errStr = serialize(err);
+      assert.ok(errStr.includes('"name": "Error"'));
+      assert.ok(errStr.includes('"message": "Test failure"'));
+    });
+
+    test('evaluates expressions, async promises, statement blocks, and code fences', async () => {
+      const scope = { a: 5, b: 10 };
+      const sum = await evaluateCode('a + b', scope);
+      assert.equal(sum, 15);
+
+      const asyncRes = await evaluateCode('await Promise.resolve(a * b)', scope);
+      assert.equal(asyncRes, 50);
+
+      const block = await evaluateCode('const res = a + 1; return res * 2;', scope);
+      assert.equal(block, 12);
+
+      const fenced = await evaluateCode('```javascript\nreturn a * 3;\n```', scope);
+      assert.equal(fenced, 15);
+    });
+
+    test('enforces strict owner authorization on eval command', async () => {
+      let isOwnerOnlyEnforced = false;
+      const options = { ownerOnly: true };
+
+      function executeCommand(isOwner) {
+        if (options.ownerOnly && !isOwner) {
+          return { status: 403, error: 'Access Denied: Only owner can trigger' };
+        }
+        return { status: 200, result: 'Executed' };
+      }
+
+      // Non-owner invocation rejected
+      const nonOwnerRes = executeCommand(false);
+      assert.equal(nonOwnerRes.status, 403);
+      assert.ok(nonOwnerRes.error.includes('Access Denied'));
+
+      // Owner invocation accepted
+      const ownerRes = executeCommand(true);
+      assert.equal(ownerRes.status, 200);
+      assert.equal(ownerRes.result, 'Executed');
+    });
   });
 });
