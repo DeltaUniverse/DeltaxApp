@@ -34,7 +34,7 @@ function findModuleFiles(dir, subDir = '') {
 
   for (const entry of entries) {
     const relativePath = subDir ? path.posix.join(subDir, entry.name) : entry.name;
-    
+
     // Ignore hidden files and directories, index.ts, declaration files, and test files
     if (entry.name.startsWith('.') || entry.name.startsWith('_')) continue;
 
