@@ -29,6 +29,10 @@ function parseWallpaperArgs(args: string[]): {
     const raw = arg.trim();
     const lower = raw.toLowerCase();
 
+    if (lower.startsWith('@')) {
+      continue;
+    }
+
     if (lower === 'random') {
       result.index = 'random';
       continue;

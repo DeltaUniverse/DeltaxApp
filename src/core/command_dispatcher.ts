@@ -96,9 +96,18 @@ export class CommandDispatcher {
       return false;
     }
 
+    const usernames = new Set<string>();
+    if (botUsername) usernames.add(botUsername.toLowerCase());
+    usernames.add('deltaxapp');
+
     const replyMsg = (ctx.msg as any)?.reply_to_message;
     const isSenderOwner = isOwner(ctx);
-    const args = input.trim() ? input.trim().split(/\s+/) : [];
+    const args = input.trim()
+      ? input
+          .trim()
+          .split(/\s+/)
+          .filter((arg) => !usernames.has(arg.replace(/^@/, '').toLowerCase()))
+      : [];
 
     const cmdCtx: CommandContext = Object.assign(ctx, {
       command: commandName,
@@ -169,24 +178,39 @@ export class CommandDispatcher {
     const p = activePrefix || '/';
     const escP = escapeRegex(p);
 
+    const usernames = new Set<string>();
+    if (botUsername) usernames.add(botUsername.toLowerCase());
+    usernames.add('deltaxapp');
+
+    const usernamePattern = Array.from(usernames).map(escapeRegex).join('|');
+
+    const cleanInput = (rawInput: string): string => {
+      let cleaned = rawInput;
+      for (const u of usernames) {
+        const r = new RegExp(`(^|\\s+)@${escapeRegex(u)}(?=\\s|$|[?#])`, 'gi');
+        cleaned = cleaned.replace(r, ' ');
+      }
+      return cleaned.replace(/\s+/g, ' ').trim();
+    };
+
     const directMatch = trimmed.match(
-      new RegExp(`^${escP}([a-zA-Z0-9_]+)(?:@${botUsername})?(?:\\s+([\\s\\S]*)|$)`, 'i')
+      new RegExp(`^${escP}([a-zA-Z0-9_]+)(?:@(?:${usernamePattern}))?(?:\\s+([\\s\\S]*)|$)`, 'i')
     );
     if (directMatch) {
       return {
         commandName: directMatch[1],
-        input: (directMatch[2] || '').trim(),
+        input: cleanInput(directMatch[2] || ''),
         prefixUsed: p,
       };
     }
 
     const mentionMatch = trimmed.match(
-      new RegExp(`^@${botUsername}\\s+${escP}([a-zA-Z0-9_]+)(?:\\s+([\\s\\S]*)|$)`, 'i')
+      new RegExp(`^@(?:${usernamePattern})\\s+${escP}([a-zA-Z0-9_]+)(?:\\s+([\\s\\S]*)|$)`, 'i')
     );
     if (mentionMatch) {
       return {
         commandName: mentionMatch[1],
-        input: (mentionMatch[2] || '').trim(),
+        input: cleanInput(mentionMatch[2] || ''),
         prefixUsed: p,
       };
     }

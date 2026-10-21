@@ -210,4 +210,112 @@ describe('Deltax App - Strict Prefix Enforcement & Owner Authorization', () => {
     assert.equal(isCommandDlReq, true);
     assert.equal(Boolean(replyMsg && !isCommandDlReq), false); // Does not skip!
   });
+
+  test('parses command arguments uniformly regardless of bot mention position', () => {
+    function parseCommand(text, botUsername, activePrefix) {
+      const trimmed = text.trim();
+      if (!trimmed) return null;
+      const p = activePrefix || '/';
+      const escP = escapeRegex(p);
+
+      const usernames = new Set();
+      if (botUsername) usernames.add(botUsername.toLowerCase());
+      usernames.add('deltaxapp');
+
+      const usernamePattern = Array.from(usernames).map(escapeRegex).join('|');
+
+      const cleanInput = (rawInput) => {
+        let cleaned = rawInput;
+        for (const u of usernames) {
+          const r = new RegExp(`(^|\\s+)@${escapeRegex(u)}(?=\\s|$|[?#])`, 'gi');
+          cleaned = cleaned.replace(r, ' ');
+        }
+        return cleaned.replace(/\s+/g, ' ').trim();
+      };
+
+      const directMatch = trimmed.match(
+        new RegExp(`^${escP}([a-zA-Z0-9_]+)(?:@(?:${usernamePattern}))?(?:\\s+([\\s\\S]*)|$)`, 'i')
+      );
+      if (directMatch) {
+        const input = cleanInput(directMatch[2] || '');
+        const args = input ? input.split(/\s+/).filter((arg) => !usernames.has(arg.replace(/^@/, '').toLowerCase())) : [];
+        return {
+          commandName: directMatch[1],
+          input,
+          args,
+          prefixUsed: p,
+        };
+      }
+
+      const mentionMatch = trimmed.match(
+        new RegExp(`^@(?:${usernamePattern})\\s+${escP}([a-zA-Z0-9_]+)(?:\\s+([\\s\\S]*)|$)`, 'i')
+      );
+      if (mentionMatch) {
+        const input = cleanInput(mentionMatch[2] || '');
+        const args = input ? input.split(/\s+/).filter((arg) => !usernames.has(arg.replace(/^@/, '').toLowerCase())) : [];
+        return {
+          commandName: mentionMatch[1],
+          input,
+          args,
+          prefixUsed: p,
+        };
+      }
+
+      return null;
+    }
+
+    // 1. Trailing mention: "!bing random @deltaxapp"
+    const trailing = parseCommand('!bing random @deltaxapp', 'deltaxapp', '!');
+    assert.deepEqual(trailing, {
+      commandName: 'bing',
+      input: 'random',
+      args: ['random'],
+      prefixUsed: '!',
+    });
+
+    // 2. Leading mention: "@deltaxapp !bing random"
+    const leading = parseCommand('@deltaxapp !bing random', 'deltaxapp', '!');
+    assert.deepEqual(leading, {
+      commandName: 'bing',
+      input: 'random',
+      args: ['random'],
+      prefixUsed: '!',
+    });
+
+    // 3. Inline mention: "!bing @deltaxapp random"
+    const inline = parseCommand('!bing @deltaxapp random', 'deltaxapp', '!');
+    assert.deepEqual(inline, {
+      commandName: 'bing',
+      input: 'random',
+      args: ['random'],
+      prefixUsed: '!',
+    });
+
+    // 4. Attached mention: "!bing@deltaxapp random"
+    const attached = parseCommand('!bing@deltaxapp random', 'deltaxapp', '!');
+    assert.deepEqual(attached, {
+      commandName: 'bing',
+      input: 'random',
+      args: ['random'],
+      prefixUsed: '!',
+    });
+
+    // 5. Multiple args with trailing mention: "!wallpaper 4K en-US @deltaxapp"
+    const multi = parseCommand('!wallpaper 4K en-US @deltaxapp', 'deltaxapp', '!');
+    assert.deepEqual(multi, {
+      commandName: 'wallpaper',
+      input: '4K en-US',
+      args: ['4K', 'en-US'],
+      prefixUsed: '!',
+    });
+
+    // 6. Mention of another user preserved: "!info @john_doe @deltaxapp"
+    const otherUser = parseCommand('!info @john_doe @deltaxapp', 'deltaxapp', '!');
+    assert.deepEqual(otherUser, {
+      commandName: 'info',
+      input: '@john_doe',
+      args: ['@john_doe'],
+      prefixUsed: '!',
+    });
+  });
 });

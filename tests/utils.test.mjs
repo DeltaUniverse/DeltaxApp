@@ -401,6 +401,9 @@ describe('Deltax App - Utilities (Telegram, Media, Misc)', () => {
         for (const arg of args) {
           const raw = arg.trim();
           const lower = raw.toLowerCase();
+          if (lower.startsWith('@')) {
+            continue;
+          }
           if (lower === 'random') {
             result.index = 'random';
             continue;
@@ -423,6 +426,8 @@ describe('Deltax App - Utilities (Telegram, Media, Misc)', () => {
 
       assert.deepEqual(parseWallpaperArgs(['UHD', 'en-US']), { resolution: 'UHD', mkt: 'en-US' });
       assert.deepEqual(parseWallpaperArgs(['random']), { index: 'random' });
+      assert.deepEqual(parseWallpaperArgs(['random', '@deltaxapp']), { index: 'random' });
+      assert.deepEqual(parseWallpaperArgs(['@deltaxapp', 'random']), { index: 'random' });
       assert.deepEqual(parseWallpaperArgs(['2']), { index: 2 });
     });
   });

@@ -90,22 +90,36 @@ export class PrefixService {
     const names = Array.isArray(commandNames) ? commandNames : [commandNames];
     const cleanText = text.trim();
 
+    const usernames = new Set<string>();
+    if (botUsername) usernames.add(botUsername.toLowerCase());
+    usernames.add('deltaxapp');
+
+    const usernamePattern = Array.from(usernames).map(escapeRegex).join('|');
+
+    const cleanArgs = (rawArgs: string): string => {
+      let cleaned = rawArgs;
+      for (const u of usernames) {
+        const r = new RegExp(`(^|\\s+)@${escapeRegex(u)}(?=\\s|$|[?#])`, 'gi');
+        cleaned = cleaned.replace(r, ' ');
+      }
+      return cleaned.replace(/\s+/g, ' ').trim();
+    };
+
     let target = cleanText;
-    if (botUsername) {
-      const mentionRegex = new RegExp(`^@${botUsername}\\b`, 'i');
-      target = target.replace(mentionRegex, '').trim();
-    }
+    target = target.replace(new RegExp(`^@(?:${usernamePattern})\\s+`, 'i'), '').trim();
 
     const allowedPrefixes = new Set([activePrefix, '/']);
 
     for (const name of names) {
       for (const p of allowedPrefixes) {
-        const prefixCmd = `${p}${name}`;
-        if (
-          target.toLowerCase() === prefixCmd.toLowerCase() ||
-          target.toLowerCase().startsWith(`${prefixCmd.toLowerCase()} `)
-        ) {
-          const args = target.slice(prefixCmd.length).trim();
+        const escP = escapeRegex(p);
+        const cmdRegex = new RegExp(
+          `^${escP}${escapeRegex(name)}(?:@(?:${usernamePattern}))?(?:\\s+([\\s\\S]*)|$)`,
+          'i'
+        );
+        const m = target.match(cmdRegex);
+        if (m) {
+          const args = cleanArgs(m[1] || '');
           return { matched: true, command: name, args };
         }
       }
