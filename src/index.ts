@@ -20,7 +20,9 @@ export function getBotServer(token: string): TelegramBotServer {
     botServerInstance = new TelegramBotServer(token);
     // Auto-register all discovered modules
     botServerInstance.registerModules(AUTO_MODULES);
-    console.log(`[Worker] Initialized TelegramBotServer with ${AUTO_MODULES.length} auto-loaded modules.`);
+    console.log(
+      `[Worker] Initialized TelegramBotServer with ${AUTO_MODULES.length} auto-loaded modules.`
+    );
   }
   return botServerInstance;
 }
@@ -36,7 +38,8 @@ app.use('*', async (c, next) => {
     return c.json(
       {
         error: 'Configuration Error',
-        message: 'BOT_TOKEN is missing. Please set BOT_TOKEN in .dev.vars (for dev) or run `wrangler secret put BOT_TOKEN` (for production).',
+        message:
+          'BOT_TOKEN is missing. Please set BOT_TOKEN in .dev.vars (for dev) or run `wrangler secret put BOT_TOKEN` (for production).',
       },
       500
     );

@@ -161,26 +161,86 @@ describe('Deltax App - Strict Prefix Enforcement & Owner Authorization', () => {
   test('downloader strictly requires prefix and rejects un-prefixed dl command in guest mode', () => {
     // With custom prefix !
     const customPrefix = '!';
-    assert.equal(isUnprefixedDownloadCommand('@deltaxapp dl https://www.instagram.com/p/123/', customPrefix), true);
-    assert.equal(isDownloadRequest('@deltaxapp dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix), false);
-    assert.equal(isUnprefixedDownloadCommand('@deltaxapp /dl https://www.instagram.com/p/123/', customPrefix), true);
-    assert.equal(isDownloadRequest('@deltaxapp /dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix), false);
-    assert.equal(isUnprefixedDownloadCommand('dl https://www.instagram.com/p/123/', customPrefix), true);
-    assert.equal(isDownloadRequest('dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix), false);
-    assert.equal(isUnprefixedDownloadCommand('/dl https://www.instagram.com/p/123/', customPrefix), true);
-    assert.equal(isDownloadRequest('/dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix), false);
+    assert.equal(
+      isUnprefixedDownloadCommand('@deltaxapp dl https://www.instagram.com/p/123/', customPrefix),
+      true
+    );
+    assert.equal(
+      isDownloadRequest(
+        '@deltaxapp dl https://www.instagram.com/p/123/',
+        'deltaxapp',
+        customPrefix
+      ),
+      false
+    );
+    assert.equal(
+      isUnprefixedDownloadCommand('@deltaxapp /dl https://www.instagram.com/p/123/', customPrefix),
+      true
+    );
+    assert.equal(
+      isDownloadRequest(
+        '@deltaxapp /dl https://www.instagram.com/p/123/',
+        'deltaxapp',
+        customPrefix
+      ),
+      false
+    );
+    assert.equal(
+      isUnprefixedDownloadCommand('dl https://www.instagram.com/p/123/', customPrefix),
+      true
+    );
+    assert.equal(
+      isDownloadRequest('dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix),
+      false
+    );
+    assert.equal(
+      isUnprefixedDownloadCommand('/dl https://www.instagram.com/p/123/', customPrefix),
+      true
+    );
+    assert.equal(
+      isDownloadRequest('/dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix),
+      false
+    );
 
     // Valid prefixed commands
-    assert.equal(isUnprefixedDownloadCommand('@deltaxapp !dl https://www.instagram.com/p/123/', customPrefix), false);
-    assert.equal(isDownloadRequest('@deltaxapp !dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix), true);
-    assert.equal(isUnprefixedDownloadCommand('!dl https://www.instagram.com/p/123/', customPrefix), false);
-    assert.equal(isDownloadRequest('!dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix), true);
+    assert.equal(
+      isUnprefixedDownloadCommand('@deltaxapp !dl https://www.instagram.com/p/123/', customPrefix),
+      false
+    );
+    assert.equal(
+      isDownloadRequest(
+        '@deltaxapp !dl https://www.instagram.com/p/123/',
+        'deltaxapp',
+        customPrefix
+      ),
+      true
+    );
+    assert.equal(
+      isUnprefixedDownloadCommand('!dl https://www.instagram.com/p/123/', customPrefix),
+      false
+    );
+    assert.equal(
+      isDownloadRequest('!dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix),
+      true
+    );
 
     // Default prefix /
-    assert.equal(isUnprefixedDownloadCommand('@deltaxapp dl https://www.instagram.com/p/123/', '/'), true);
-    assert.equal(isDownloadRequest('@deltaxapp dl https://www.instagram.com/p/123/', 'deltaxapp', '/'), false);
-    assert.equal(isUnprefixedDownloadCommand('@deltaxapp /dl https://www.instagram.com/p/123/', '/'), false);
-    assert.equal(isDownloadRequest('@deltaxapp /dl https://www.instagram.com/p/123/', 'deltaxapp', '/'), true);
+    assert.equal(
+      isUnprefixedDownloadCommand('@deltaxapp dl https://www.instagram.com/p/123/', '/'),
+      true
+    );
+    assert.equal(
+      isDownloadRequest('@deltaxapp dl https://www.instagram.com/p/123/', 'deltaxapp', '/'),
+      false
+    );
+    assert.equal(
+      isUnprefixedDownloadCommand('@deltaxapp /dl https://www.instagram.com/p/123/', '/'),
+      false
+    );
+    assert.equal(
+      isDownloadRequest('@deltaxapp /dl https://www.instagram.com/p/123/', 'deltaxapp', '/'),
+      true
+    );
   });
 
   test('strict filter: skips when mentioned by reply without explicit command', () => {
@@ -238,7 +298,9 @@ describe('Deltax App - Strict Prefix Enforcement & Owner Authorization', () => {
       );
       if (directMatch) {
         const input = cleanInput(directMatch[2] || '');
-        const args = input ? input.split(/\s+/).filter((arg) => !usernames.has(arg.replace(/^@/, '').toLowerCase())) : [];
+        const args = input
+          ? input.split(/\s+/).filter((arg) => !usernames.has(arg.replace(/^@/, '').toLowerCase()))
+          : [];
         return {
           commandName: directMatch[1],
           input,
@@ -252,7 +314,9 @@ describe('Deltax App - Strict Prefix Enforcement & Owner Authorization', () => {
       );
       if (mentionMatch) {
         const input = cleanInput(mentionMatch[2] || '');
-        const args = input ? input.split(/\s+/).filter((arg) => !usernames.has(arg.replace(/^@/, '').toLowerCase())) : [];
+        const args = input
+          ? input.split(/\s+/).filter((arg) => !usernames.has(arg.replace(/^@/, '').toLowerCase()))
+          : [];
         return {
           commandName: mentionMatch[1],
           input,

@@ -184,8 +184,7 @@ async function extractViaGuestApi(tweetId: string): Promise<ExtractedResult | nu
 
   const user = tweetResult.core?.user_results?.result?.legacy;
   const caption = tweet.full_text || '';
-  const mediaEntities: any[] =
-    tweet.extended_entities?.media || tweet.entities?.media || [];
+  const mediaEntities: any[] = tweet.extended_entities?.media || tweet.entities?.media || [];
 
   const items: ExtractedMediaItem[] = [];
 
@@ -232,8 +231,7 @@ async function extractViaVxTwitter(tweetId: string): Promise<ExtractedResult | n
   try {
     const res = await fetch(`https://api.vxtwitter.com/Twitter/status/${tweetId}`, {
       headers: {
-        'user-agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
     });
 
@@ -246,9 +244,7 @@ async function extractViaVxTwitter(tweetId: string): Promise<ExtractedResult | n
     if (data.mediaURLs && Array.isArray(data.mediaURLs)) {
       for (const mUrl of data.mediaURLs) {
         const isVideo =
-          mUrl.includes('.mp4') ||
-          mUrl.includes('/video/') ||
-          data.hasMedia === 'video';
+          mUrl.includes('.mp4') || mUrl.includes('/video/') || data.hasMedia === 'video';
 
         items.push({
           type: isVideo ? 'video' : 'photo',

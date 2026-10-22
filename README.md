@@ -26,18 +26,23 @@ The core architecture adopts the modular dispatch principles pioneered by [Calig
 ## Architecture & Principles
 
 ### Deterministic Command Dispatching
+
 A centralized pre-flight interceptor enforces strict prefix resolution. When a custom prefix (e.g. `!`) is active, all foreign prefixes are rejected, eliminating execution ambiguity and duplicate webhook replies.
 
 ### Modular Encapsulation
+
 Features are developed as self-contained classes inheriting from `BaseModule`. New modules placed in `src/modules/` are automatically discovered, compiled, and registered without manual wiring or registry updates.
 
 ### Non-Blocking Edge Concurrency
+
 Incoming Telegram webhooks respond with `200 OK` instantaneously. Intensive operations—including remote media extraction, screenshot rendering, and database transactions—are scheduled non-blockingly using Cloudflare's `ExecutionContext.waitUntil()`.
 
 ### Distributed Persistence Layer
+
 Dynamic runtime configurations and collection data are persisted across edge regions using Cloudflare D1. An in-memory cache layer avoids redundant network round-trips on warm isolates.
 
 ### Type-Safe Presentation
+
 Out-of-the-box integration with tagged template literals (`html`...``) guarantees entity sanitization and prevents Telegram parse errors caused by unescaped dynamic input.
 
 ---
@@ -57,7 +62,9 @@ export class StatusModule extends BaseModule {
     this.command(
       ['status', 'health'],
       async (ctx: CommandContext) => {
-        await ctx.respond(html`<b>Deltax App:</b> Operational.\nActive Prefix: <code>${ctx.prefix}</code>`);
+        await ctx.respond(
+          html`<b>Deltax App:</b> Operational. Active Prefix: <code>${ctx.prefix}</code>`
+        );
       },
       { description: 'Display service health' }
     );

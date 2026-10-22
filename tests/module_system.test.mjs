@@ -87,11 +87,10 @@ describe('Deltax App - Module System & Event Handling', () => {
           { description: 'Echoes back text' }
         );
 
-        dispatcher.register(
-          ['adminreset'],
-          async () => 'System reset',
-          { ownerOnly: true, description: 'Reset system' }
-        );
+        dispatcher.register(['adminreset'], async () => 'System reset', {
+          ownerOnly: true,
+          description: 'Reset system',
+        });
       }
     }
 

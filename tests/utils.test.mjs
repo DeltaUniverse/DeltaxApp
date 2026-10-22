@@ -33,18 +33,12 @@ function getCallerUser(ctx) {
 }
 
 function getChatId(ctx) {
-  return (
-    ctx?.chat?.id ||
-    ctx?.msg?.chat?.id ||
-    ctx?.msg?.guest_bot_caller_chat?.id
-  );
+  return ctx?.chat?.id || ctx?.msg?.chat?.id || ctx?.msg?.guest_bot_caller_chat?.id;
 }
 
 function isGuestMode(ctx) {
   return Boolean(
-    ctx?.msg?.guest_bot_caller_user ||
-    ctx?.msg?.guest_query_id ||
-    ctx?.update?.guest_message
+    ctx?.msg?.guest_bot_caller_user || ctx?.msg?.guest_query_id || ctx?.update?.guest_message
   );
 }
 
@@ -71,17 +65,7 @@ function extractMessageUrls(msg) {
   return { text, entityUrls };
 }
 
-const HTML_TAGS = [
-  '<blockquote',
-  '<b>',
-  '<code>',
-  '<pre',
-  '<i>',
-  '<spoiler',
-  '<u>',
-  '<s>',
-  '<a ',
-];
+const HTML_TAGS = ['<blockquote', '<b>', '<code>', '<pre', '<i>', '<spoiler', '<u>', '<s>', '<a '];
 
 function hasHtmlTags(text) {
   if (!text) return false;
@@ -378,7 +362,11 @@ describe('Deltax App - Utilities (Telegram, Media, Misc)', () => {
       assert.deepEqual(withMention, { url: 'https://github.com', domain: 'github.com' });
 
       // From replied message
-      const fromReply = extractTargetUrl('!ss', { text: 'Check this link: https://cloudflare.com' }, '!');
+      const fromReply = extractTargetUrl(
+        '!ss',
+        { text: 'Check this link: https://cloudflare.com' },
+        '!'
+      );
       assert.deepEqual(fromReply, { url: 'https://cloudflare.com', domain: 'cloudflare.com' });
 
       // No URL
@@ -388,8 +376,10 @@ describe('Deltax App - Utilities (Telegram, Media, Misc)', () => {
     test('extractDownloadTarget extracts social URLs from args, entities, or replied message', () => {
       function findSupportedUrl(text) {
         if (!text) return null;
-        if (text.includes('instagram.com/reel/123')) return { platform: 'instagram', url: 'https://www.instagram.com/reel/123' };
-        if (text.includes('tiktok.com/@user/video/456')) return { platform: 'tiktok', url: 'https://tiktok.com/@user/video/456' };
+        if (text.includes('instagram.com/reel/123'))
+          return { platform: 'instagram', url: 'https://www.instagram.com/reel/123' };
+        if (text.includes('tiktok.com/@user/video/456'))
+          return { platform: 'tiktok', url: 'https://tiktok.com/@user/video/456' };
         return null;
       }
 
@@ -464,7 +454,10 @@ describe('Deltax App - Utilities (Telegram, Media, Misc)', () => {
 
     test('buildGuestMediaContainer outputs figure for 1 item and tg-slideshow for multiple', () => {
       const single = [{ type: 'photo', url: 'https://example.com/pic.jpg' }];
-      assert.equal(buildGuestMediaContainer(single), '<figure><img src="https://example.com/pic.jpg" /></figure>');
+      assert.equal(
+        buildGuestMediaContainer(single),
+        '<figure><img src="https://example.com/pic.jpg" /></figure>'
+      );
 
       const multi = [
         { type: 'photo', url: 'https://example.com/1.jpg' },

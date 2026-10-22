@@ -7,11 +7,9 @@ const TCO_URL_REGEX = /https?:\/\/t\.co\/([a-zA-Z0-9_-]+)/i;
 
 const TIKTOK_URL_REGEX =
   /https?:\/\/(?:www\.|m\.)?tiktok\.com\/@[a-zA-Z0-9_.-]+\/(?:video|photo)\/(\d+)/i;
-const TIKTOK_VM_REGEX =
-  /https?:\/\/(?:vm|vt)\.tiktok\.com\/([a-zA-Z0-9]+)/i;
+const TIKTOK_VM_REGEX = /https?:\/\/(?:vm|vt)\.tiktok\.com\/([a-zA-Z0-9]+)/i;
 
-const INSTAGRAM_URL_REGEX =
-  /https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel|tv)\/([a-zA-Z0-9_-]+)/i;
+const INSTAGRAM_URL_REGEX = /https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel|tv)\/([a-zA-Z0-9_-]+)/i;
 const INSTAGRAM_SHARE_REGEX =
   /https?:\/\/(?:www\.)?instagram\.com\/share\/(?:reel|p)\/([a-zA-Z0-9_-]+)/i;
 

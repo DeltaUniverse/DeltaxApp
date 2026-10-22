@@ -77,7 +77,9 @@ export function code(text: unknown): SafeHtml {
 
 export function pre(text: unknown, language?: string): SafeHtml {
   if (language) {
-    return rawHtml(`<pre><code class="language-${escapeHtml(language)}">${escapeHtml(text)}</code></pre>`);
+    return rawHtml(
+      `<pre><code class="language-${escapeHtml(language)}">${escapeHtml(text)}</code></pre>`
+    );
   }
   return rawHtml(`<pre>${escapeHtml(text)}</pre>`);
 }

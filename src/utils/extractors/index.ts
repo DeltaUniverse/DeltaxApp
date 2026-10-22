@@ -1,18 +1,6 @@
-import {
-  extractInstagram,
-  INSTAGRAM_URL_REGEX,
-  INSTAGRAM_SHARE_REGEX,
-} from './instagram';
-import {
-  extractTikTok,
-  TIKTOK_URL_REGEX,
-  TIKTOK_VM_REGEX,
-} from './tiktok';
-import {
-  extractTwitter,
-  TWITTER_URL_REGEX,
-  TCO_URL_REGEX,
-} from './twitter';
+import { extractInstagram, INSTAGRAM_URL_REGEX, INSTAGRAM_SHARE_REGEX } from './instagram';
+import { extractTikTok, TIKTOK_URL_REGEX, TIKTOK_VM_REGEX } from './tiktok';
+import { extractTwitter, TWITTER_URL_REGEX, TCO_URL_REGEX } from './twitter';
 import type { ExtractedResult } from './types';
 
 export * from './types';
@@ -34,22 +22,19 @@ export function findSupportedUrl(text: string): DetectedUrl | null {
   if (!text) return null;
 
   // Instagram
-  const igMatch =
-    text.match(INSTAGRAM_URL_REGEX) || text.match(INSTAGRAM_SHARE_REGEX);
+  const igMatch = text.match(INSTAGRAM_URL_REGEX) || text.match(INSTAGRAM_SHARE_REGEX);
   if (igMatch) {
     return { platform: 'instagram', url: igMatch[0] };
   }
 
   // TikTok
-  const ttMatch =
-    text.match(TIKTOK_URL_REGEX) || text.match(TIKTOK_VM_REGEX);
+  const ttMatch = text.match(TIKTOK_URL_REGEX) || text.match(TIKTOK_VM_REGEX);
   if (ttMatch) {
     return { platform: 'tiktok', url: ttMatch[0] };
   }
 
   // Twitter / X
-  const twMatch =
-    text.match(TWITTER_URL_REGEX) || text.match(TCO_URL_REGEX);
+  const twMatch = text.match(TWITTER_URL_REGEX) || text.match(TCO_URL_REGEX);
   if (twMatch) {
     return { platform: 'twitter', url: twMatch[0] };
   }

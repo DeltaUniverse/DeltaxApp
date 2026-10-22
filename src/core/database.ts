@@ -118,7 +118,8 @@ export class Collection<T = Record<string, unknown>> {
 
 export class DatabaseService {
   private readonly _collections: Map<string, Collection<any>> = new Map();
-  private readonly _memoryCollections: Map<string, Map<string, { data: any; updatedAt: number }>> = new Map();
+  private readonly _memoryCollections: Map<string, Map<string, { data: any; updatedAt: number }>> =
+    new Map();
   private readonly _settingsCache: Map<string, string> = new Map();
   private _tablesInitialized = false;
 

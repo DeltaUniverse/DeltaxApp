@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 
 describe('Deltax App - Wallpaper Module Utilities & Argument Parser', () => {
   const BING_RESOLUTIONS = {
-    '1366': '1366x768.jpg',
-    '1920': '1920x1080.jpg',
-    '3840': 'UHD.jpg',
-    'UHD': 'UHD.jpg',
-    'uhd': 'UHD.jpg',
+    1366: '1366x768.jpg',
+    1920: '1920x1080.jpg',
+    3840: 'UHD.jpg',
+    UHD: 'UHD.jpg',
+    uhd: 'UHD.jpg',
     '4k': 'UHD.jpg',
     '4K': 'UHD.jpg',
     '1080x1920': '1080x1920.jpg',

@@ -31,7 +31,9 @@ if (!rawName) {
 // Clean and validate name
 const sanitized = rawName.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
 if (!sanitized) {
-  console.error('\x1b[31mError: Invalid module name. Use letters, numbers, hyphens or underscores.\x1b[0m');
+  console.error(
+    '\x1b[31mError: Invalid module name. Use letters, numbers, hyphens or underscores.\x1b[0m'
+  );
   process.exit(1);
 }
 

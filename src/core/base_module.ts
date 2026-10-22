@@ -50,9 +50,7 @@ export abstract class BaseModule {
     optionsOrDesc?: string | CommandOptions
   ): this {
     const options: CommandOptions =
-      typeof optionsOrDesc === 'string'
-        ? { description: optionsOrDesc }
-        : optionsOrDesc || {};
+      typeof optionsOrDesc === 'string' ? { description: optionsOrDesc } : optionsOrDesc || {};
 
     const names = Array.isArray(name) ? name : [name];
     for (const cmd of names) {

@@ -16,8 +16,8 @@ const BING_RESOLUTIONS: Record<string, string> = {
   '1366': '1366x768.jpg',
   '1920': '1920x1080.jpg',
   '3840': 'UHD.jpg',
-  'UHD': 'UHD.jpg',
-  'uhd': 'UHD.jpg',
+  UHD: 'UHD.jpg',
+  uhd: 'UHD.jpg',
   '4k': 'UHD.jpg',
   '4K': 'UHD.jpg',
   '1920x1200': '1920x1200.jpg',
@@ -154,7 +154,8 @@ async function fetchBingWallpaper(
   if (options.index === 'random' || options.index === undefined || options.index === null) {
     targetIndex = options.index === 'random' ? getRandomIndex() : 0;
   } else {
-    const parsed = typeof options.index === 'number' ? options.index : parseInt(String(options.index), 10);
+    const parsed =
+      typeof options.index === 'number' ? options.index : parseInt(String(options.index), 10);
     targetIndex = isNaN(parsed) || parsed < 0 ? 0 : Math.min(parsed, 7);
   }
 
@@ -196,7 +197,7 @@ async function fetchBingWallpaper(
   }
 
   const base = image.urlbase ? `${BING_BASE_URL}${image.urlbase}` : null;
-  let finalUrl = base ? `${base}_${suffix}` : (image.url ? `${BING_BASE_URL}${image.url}` : '');
+  let finalUrl = base ? `${base}_${suffix}` : image.url ? `${BING_BASE_URL}${image.url}` : '';
   const uhdUrl = base ? `${base}_UHD.jpg` : finalUrl;
 
   if (options.imageFormat === 'webp' && finalUrl.endsWith('.jpg')) {
@@ -239,7 +240,14 @@ function parseWallpaperArgs(args: string[]): {
       continue;
     }
 
-    if (lower === 'uhd' || lower === '4k' || lower === '1920' || lower === '1366' || BING_RESOLUTIONS[raw] || BING_RESOLUTIONS[lower]) {
+    if (
+      lower === 'uhd' ||
+      lower === '4k' ||
+      lower === '1920' ||
+      lower === '1366' ||
+      BING_RESOLUTIONS[raw] ||
+      BING_RESOLUTIONS[lower]
+    ) {
       result.resolution = raw;
       continue;
     }
@@ -302,9 +310,7 @@ export class WallpaperModule extends BaseModule {
           });
         } catch (err) {
           console.error('[WallpaperModule] Failed to fetch Bing wallpaper:', err);
-          await ctx.respond(
-            '❌ <b>Failed to fetch Bing wallpaper.</b>\n\nPlease try again later.'
-          );
+          await ctx.respond('❌ <b>Failed to fetch Bing wallpaper.</b>\n\nPlease try again later.');
           return;
         }
 
@@ -327,33 +333,37 @@ export class WallpaperModule extends BaseModule {
           .url('Bing Story', data.copyright_link);
 
         if (guestMode) {
-          await ctx.answerGuestQuery({
-            type: 'photo',
-            id: `guest_wp_${Date.now()}`,
-            photo_url: data.url,
-            thumbnail_url: data.url,
-            title: data.title,
-            caption,
-            parse_mode: 'HTML',
-            reply_markup: keyboard,
-          }).catch(async () => {
-            const richHtml =
-              `<figure><img src="${escapeHtml(data.url)}" /></figure>\n\n` +
-              caption +
-              `\n\n<tg-button-row align="center">\n  <tg-button type="url" style="primary" url="${escapeHtml(data.uhd_url || data.url)}">4K UHD Wallpaper</tg-button>\n</tg-button-row>`;
-
-            await ctx.answerGuestQuery({
-              type: 'article',
-              id: `guest_wp_art_${Date.now()}`,
-              title: data.title,
+          await ctx
+            .answerGuestQuery({
+              type: 'photo',
+              id: `guest_wp_${Date.now()}`,
+              photo_url: data.url,
               thumbnail_url: data.url,
-              input_message_content: {
-                rich_message: {
-                  html: richHtml,
-                },
-              },
-            }).catch(() => {});
-          });
+              title: data.title,
+              caption,
+              parse_mode: 'HTML',
+              reply_markup: keyboard,
+            })
+            .catch(async () => {
+              const richHtml =
+                `<figure><img src="${escapeHtml(data.url)}" /></figure>\n\n` +
+                caption +
+                `\n\n<tg-button-row align="center">\n  <tg-button type="url" style="primary" url="${escapeHtml(data.uhd_url || data.url)}">4K UHD Wallpaper</tg-button>\n</tg-button-row>`;
+
+              await ctx
+                .answerGuestQuery({
+                  type: 'article',
+                  id: `guest_wp_art_${Date.now()}`,
+                  title: data.title,
+                  thumbnail_url: data.url,
+                  input_message_content: {
+                    rich_message: {
+                      html: richHtml,
+                    },
+                  },
+                })
+                .catch(() => {});
+            });
           return;
         }
 

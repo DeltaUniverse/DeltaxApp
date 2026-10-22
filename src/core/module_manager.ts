@@ -39,7 +39,9 @@ export class ModuleManager {
     }
 
     if (!module || typeof module.id !== 'string' || !module.id.trim()) {
-      console.error('[ModuleManager] Invalid module ignored: Missing or empty string `id` property.');
+      console.error(
+        '[ModuleManager] Invalid module ignored: Missing or empty string `id` property.'
+      );
       return this;
     }
 
@@ -49,7 +51,9 @@ export class ModuleManager {
     }
 
     if (this._modules.has(module.id)) {
-      console.warn(`[ModuleManager] Module "${module.id}" already registered. Overwriting with latest instance.`);
+      console.warn(
+        `[ModuleManager] Module "${module.id}" already registered. Overwriting with latest instance.`
+      );
     }
 
     if (this._dispatcher) {
@@ -64,13 +68,18 @@ export class ModuleManager {
         });
       }
     } catch (err) {
-      console.error(`[ModuleManager] Synchronous error during setup of module "${module.id}":`, err);
+      console.error(
+        `[ModuleManager] Synchronous error during setup of module "${module.id}":`,
+        err
+      );
     }
 
     try {
       this._bot.use(module.getComposer());
       this._modules.set(module.id, module);
-      console.log(`[ModuleManager] Loaded module: ${module.name || module.id} (${module.id}) v${module.version || '1.0.0'}`);
+      console.log(
+        `[ModuleManager] Loaded module: ${module.name || module.id} (${module.id}) v${module.version || '1.0.0'}`
+      );
     } catch (err) {
       console.error(`[ModuleManager] Failed to mount composer for module "${module.id}":`, err);
     }

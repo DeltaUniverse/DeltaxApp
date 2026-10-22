@@ -56,8 +56,7 @@ function decodeSnapSave(
   _r: number
 ): string {
   function decodeBase(d: string, eVal: number, fVal: number): string {
-    const chars =
-      '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/';
+    const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/';
     const hStr = chars.slice(0, eVal);
     const iStr = chars.slice(0, fVal);
     const jVal = d
@@ -122,10 +121,8 @@ async function extractViaSSR(shortcode: string): Promise<ExtractedResult | null>
     const url = `https://www.instagram.com/p/${shortcode}/`;
     const res = await fetch(url, {
       headers: {
-        'user-agent':
-          'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-        accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'user-agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'accept-language': 'en-US,en;q=0.9',
       },
     });
@@ -164,8 +161,7 @@ async function extractViaSSR(shortcode: string): Promise<ExtractedResult | null>
           typeof media.like_count === 'number' || typeof media.comment_count === 'number'
             ? {
                 likes: typeof media.like_count === 'number' ? media.like_count : undefined,
-                comments:
-                  typeof media.comment_count === 'number' ? media.comment_count : undefined,
+                comments: typeof media.comment_count === 'number' ? media.comment_count : undefined,
               }
             : undefined;
         const items: ExtractedMediaItem[] = [];
@@ -177,13 +173,10 @@ async function extractViaSSR(shortcode: string): Promise<ExtractedResult | null>
               items.push({
                 type: 'video',
                 url: videoUrl,
-                thumbnailUrl:
-                  item.display_uri ||
-                  item.image_versions2?.candidates?.[0]?.url,
+                thumbnailUrl: item.display_uri || item.image_versions2?.candidates?.[0]?.url,
               });
             } else {
-              const imgUrl =
-                item.image_versions2?.candidates?.[0]?.url || item.display_uri;
+              const imgUrl = item.image_versions2?.candidates?.[0]?.url || item.display_uri;
               if (imgUrl) {
                 items.push({
                   type: 'photo',
@@ -196,13 +189,10 @@ async function extractViaSSR(shortcode: string): Promise<ExtractedResult | null>
           items.push({
             type: 'video',
             url: media.video_url || media.video_versions[0].url,
-            thumbnailUrl:
-              media.display_uri ||
-              media.image_versions2?.candidates?.[0]?.url,
+            thumbnailUrl: media.display_uri || media.image_versions2?.candidates?.[0]?.url,
           });
         } else {
-          const imgUrl =
-            media.image_versions2?.candidates?.[0]?.url || media.display_uri;
+          const imgUrl = media.image_versions2?.candidates?.[0]?.url || media.display_uri;
           if (imgUrl) {
             items.push({
               type: 'photo',
@@ -278,25 +268,15 @@ async function extractViaSnapSave(
       for (let i = 1; i < blocks.length; i++) {
         const block = blocks[i];
         const downloadMatch =
-          block.match(/href=\\?"([^"\\<>]+)/i) ||
-          block.match(/<a[^>]+href=["\\]*([^"\\]+)/i);
+          block.match(/href=\\?"([^"\\<>]+)/i) || block.match(/<a[^>]+href=["\\]*([^"\\]+)/i);
         const thumbMatch =
-          block.match(/img\s+src=\\?"([^"\\<>]+)/i) ||
-          block.match(/<img[^>]+src=["\\]*([^"\\]+)/i);
+          block.match(/img\s+src=\\?"([^"\\<>]+)/i) || block.match(/<img[^>]+src=["\\]*([^"\\]+)/i);
 
         const rawStreamUrl = downloadMatch
-          ? downloadMatch[1]
-              .replace(/\\"/g, '')
-              .replace(/\\/g, '')
-              .replace(/&amp;/g, '&')
-              .trim()
+          ? downloadMatch[1].replace(/\\"/g, '').replace(/\\/g, '').replace(/&amp;/g, '&').trim()
           : '';
         const rawThumbUrl = thumbMatch
-          ? thumbMatch[1]
-              .replace(/\\"/g, '')
-              .replace(/\\/g, '')
-              .replace(/&amp;/g, '&')
-              .trim()
+          ? thumbMatch[1].replace(/\\"/g, '').replace(/\\/g, '').replace(/&amp;/g, '&').trim()
           : '';
 
         if (!rawStreamUrl) continue;
@@ -329,16 +309,11 @@ async function extractViaSnapSave(
       );
 
       for (const sUrl of streamUrls) {
-        const cleaned = sUrl
-          .replace(/\\"/g, '')
-          .replace(/\\/g, '')
-          .replace(/&amp;/g, '&')
-          .trim();
+        const cleaned = sUrl.replace(/\\"/g, '').replace(/\\/g, '').replace(/&amp;/g, '&').trim();
         const jwt = decodeJwtPayload(cleaned);
         const directUrl = jwt?.url || cleaned;
         const isVid =
-          /icon-dlvideo|download video/i.test(decodedHtml) ||
-          directUrl.includes('.mp4');
+          /icon-dlvideo|download video/i.test(decodedHtml) || directUrl.includes('.mp4');
 
         items.push({
           type: isVid ? 'video' : 'photo',
@@ -368,10 +343,8 @@ async function extractViaOG(shortcode: string): Promise<ExtractedResult | null> 
     const url = `https://www.instagram.com/p/${shortcode}/`;
     const res = await fetch(url, {
       headers: {
-        'user-agent':
-          'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
-        accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'user-agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'accept-language': 'en-US,en;q=0.9',
       },
     });
@@ -382,15 +355,9 @@ async function extractViaOG(shortcode: string): Promise<ExtractedResult | null> 
     const ogVideo = html.match(
       /property=["']og:video(?::secure_url)?["']\s+content=["']([^"']+)["']/i
     );
-    const ogImage = html.match(
-      /property=["']og:image["']\s+content=["']([^"']+)["']/i
-    );
-    const ogTitle = html.match(
-      /property=["']og:title["']\s+content=["']([^"']+)["']/i
-    );
-    const ogDesc = html.match(
-      /property=["']og:description["']\s+content=["']([^"']+)["']/i
-    );
+    const ogImage = html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i);
+    const ogTitle = html.match(/property=["']og:title["']\s+content=["']([^"']+)["']/i);
+    const ogDesc = html.match(/property=["']og:description["']\s+content=["']([^"']+)["']/i);
 
     if (ogVideo?.[1] || ogImage?.[1]) {
       const items: ExtractedMediaItem[] = [];
@@ -505,8 +472,7 @@ async function extractViaGQL(shortcode: string): Promise<ExtractedResult | null>
 
     if (!res.ok) return null;
     const json = (await res.json()) as any;
-    const media =
-      json?.data?.xdt_shortcode_media || json?.data?.shortcode_media;
+    const media = json?.data?.xdt_shortcode_media || json?.data?.shortcode_media;
     if (!media) return null;
 
     return parseShortcodeMedia(shortcode, media);
@@ -536,9 +502,7 @@ async function extractViaEmbed(shortcode: string): Promise<ExtractedResult | nul
 
     if (videoMatch?.[1]) {
       const videoUrl = JSON.parse(`"${videoMatch[1]}"`);
-      const thumbnailUrl = displayMatch?.[1]
-        ? JSON.parse(`"${displayMatch[1]}"`)
-        : undefined;
+      const thumbnailUrl = displayMatch?.[1] ? JSON.parse(`"${displayMatch[1]}"`) : undefined;
 
       return {
         platform: 'instagram',
@@ -575,10 +539,7 @@ async function extractViaEmbed(shortcode: string): Promise<ExtractedResult | nul
 
 function parseShortcodeMedia(shortcode: string, media: any): ExtractedResult {
   const items: ExtractedMediaItem[] = [];
-  const caption =
-    media.edge_media_to_caption?.edges?.[0]?.node?.text ||
-    media.caption ||
-    '';
+  const caption = media.edge_media_to_caption?.edges?.[0]?.node?.text || media.caption || '';
 
   const author = {
     name: media.owner?.full_name,
@@ -592,8 +553,7 @@ function parseShortcodeMedia(shortcode: string, media: any): ExtractedResult {
   const comments =
     media.edge_media_to_comment?.count ??
     (typeof media.comment_count === 'number' ? media.comment_count : undefined);
-  const stats =
-    likes !== undefined || comments !== undefined ? { likes, comments } : undefined;
+  const stats = likes !== undefined || comments !== undefined ? { likes, comments } : undefined;
 
   if (media.edge_sidecar_to_children?.edges?.length > 0) {
     for (const edge of media.edge_sidecar_to_children.edges) {

@@ -19,10 +19,7 @@ import {
 /**
  * Checks if a message attempts an un-prefixed download command (e.g. "@deltaxapp dl ...", "dl ...")
  */
-export function isUnprefixedDownloadCommand(
-  text: string,
-  activePrefix: string = '/'
-): boolean {
+export function isUnprefixedDownloadCommand(text: string, activePrefix: string = '/'): boolean {
   if (!text) return false;
   const trimmed = text.trim();
 
@@ -83,14 +80,17 @@ export class DownloaderModule extends BaseModule {
     this.command(
       ['dl', 'download'],
       async (ctx: CommandContext) => {
-        const target = extractDownloadTarget(ctx.input, ctx.replyMsg, ctx.prefix, ctx.msg?.entities);
+        const target = extractDownloadTarget(
+          ctx.input,
+          ctx.replyMsg,
+          ctx.prefix,
+          ctx.msg?.entities
+        );
         if (!target) {
           const usageMsg = html`<b>Usage:</b> <code>${escapeHtml(ctx.prefix)}dl &lt;url&gt;</code>
 
-Send or reply to a link from:
-• <b>Instagram:</b> Reels, Posts, Carousels
-• <b>TikTok:</b> Videos, Photo slides
-• <b>X (Twitter):</b> Videos, GIFs, Photos`;
+            Send or reply to a link from: • <b>Instagram:</b> Reels, Posts, Carousels •
+            <b>TikTok:</b> Videos, Photo slides • <b>X (Twitter):</b> Videos, GIFs, Photos`;
           await ctx.respond(usageMsg);
           return;
         }
@@ -145,11 +145,7 @@ Send or reply to a link from:
     platform: 'instagram' | 'tiktok' | 'twitter'
   ): Promise<void> {
     const platformLabel =
-      platform === 'instagram'
-        ? 'Instagram'
-        : platform === 'tiktok'
-          ? 'TikTok'
-          : 'X (Twitter)';
+      platform === 'instagram' ? 'Instagram' : platform === 'tiktok' ? 'TikTok' : 'X (Twitter)';
 
     const chatId = getChatId(ctx);
 
@@ -171,23 +167,27 @@ Send or reply to a link from:
     if (!result || result.items.length === 0) {
       const errorMsg = html`❌ <b>Unable to extract media from ${platformLabel}.</b>
 
-The post may be private, deleted, or restricted by the platform.`;
+        The post may be private, deleted, or restricted by the platform.`;
 
       if (isGuestQuery) {
-        await ctx.answerGuestQuery({
-          type: 'article',
-          id: `guest_err_${Date.now()}`,
-          title: `Unable to extract ${platformLabel}`,
-          description: 'Post may be private, restricted, or deleted.',
-          input_message_content: {
-            message_text: `❌ <b>Unable to extract media from ${platformLabel}.</b>\n\nThe post may be private, deleted, or restricted.`,
-            parse_mode: 'HTML',
-          },
-        }).catch(() => {});
+        await ctx
+          .answerGuestQuery({
+            type: 'article',
+            id: `guest_err_${Date.now()}`,
+            title: `Unable to extract ${platformLabel}`,
+            description: 'Post may be private, restricted, or deleted.',
+            input_message_content: {
+              message_text: `❌ <b>Unable to extract media from ${platformLabel}.</b>\n\nThe post may be private, deleted, or restricted.`,
+              parse_mode: 'HTML',
+            },
+          })
+          .catch(() => {});
       } else if (chatId) {
-        await ctx.api.sendMessage(chatId, errorMsg, {
-          reply_parameters: replyMessageId ? { message_id: replyMessageId } : undefined,
-        }).catch(() => {});
+        await ctx.api
+          .sendMessage(chatId, errorMsg, {
+            reply_parameters: replyMessageId ? { message_id: replyMessageId } : undefined,
+          })
+          .catch(() => {});
       }
       return;
     }
@@ -210,15 +210,13 @@ The post may be private, deleted, or restricted by the platform.`;
     const metricsLine = metrics.length > 0 ? metrics.join('  ') : '';
 
     // 2. Clean caption text safely without incomplete sanitization or double-escaping
-    const cleanCaption = result.caption
-      ? unescapeHtml(stripHtml(result.caption)).trim()
-      : '';
+    const cleanCaption = result.caption ? unescapeHtml(stripHtml(result.caption)).trim() : '';
 
     // 3. Author attribution & watermark footer
     const authorName = result.author?.username
-      ? (result.author.username.startsWith('@')
-          ? result.author.username
-          : `@${result.author.username}`)
+      ? result.author.username.startsWith('@')
+        ? result.author.username
+        : `@${result.author.username}`
       : result.author?.name;
     const authorLine = authorName ? `— ${escapeHtml(authorName)}` : '';
     const brandLine = '<a href="https://t.me/deltadiscuss">© DeltaxApps</a>';
@@ -350,10 +348,12 @@ The post may be private, deleted, or restricted by the platform.`;
 
         const fallbackMsg = html`<b>${platformLabel} Media Extracted</b>
 
-${metricsLine ? rawHtml(metricsLine + '\n\n') : ''}${standardBody ? rawHtml(`<blockquote expandable>${escapeHtml(standardBody)}</blockquote>\n\n`) : ''}${authorLine ? rawHtml(authorLine + '\n\n') : ''}${rawHtml(`<blockquote>${brandLine}</blockquote>\n\n`)}<b>Direct Download Links:</b>
-${rawHtml(downloadLinksHtml)}
+          ${metricsLine ? rawHtml(metricsLine + '\n\n') : ''}${standardBody ? rawHtml(`<blockquote expandable>${escapeHtml(standardBody)}</blockquote>\n\n`) : ''}${authorLine ? rawHtml(authorLine + '\n\n') : ''}${rawHtml(`<blockquote>${brandLine}</blockquote>\n\n`)}<b
+            >Direct Download Links:</b
+          >
+          ${rawHtml(downloadLinksHtml)}
 
-<i>Note: Direct Telegram delivery exceeded size/CDN limit.</i>`;
+          <i>Note: Direct Telegram delivery exceeded size/CDN limit.</i>`;
 
         await ctx.api
           .sendMessage(chatId, fallbackMsg, {

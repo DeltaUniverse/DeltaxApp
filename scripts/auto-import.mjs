@@ -82,7 +82,9 @@ function scanModules() {
 
     // Look for exported classes extending BaseModule
     const classMatch = content.match(/export\s+class\s+([A-Za-z0-9_]+)\s+extends\s+BaseModule/);
-    const defaultClassMatch = content.match(/export\s+default\s+class\s+([A-Za-z0-9_]+)\s+extends\s+BaseModule/);
+    const defaultClassMatch = content.match(
+      /export\s+default\s+class\s+([A-Za-z0-9_]+)\s+extends\s+BaseModule/
+    );
     const defaultAnonMatch = content.match(/export\s+default\s+class\s+extends\s+BaseModule/);
 
     if (classMatch) {
@@ -136,7 +138,9 @@ export const AUTO_MODULES: ModuleConstructor[] = [
   const existingContent = fs.existsSync(OUTPUT_FILE) ? fs.readFileSync(OUTPUT_FILE, 'utf-8') : '';
   if (existingContent !== outputContent) {
     fs.writeFileSync(OUTPUT_FILE, outputContent, 'utf-8');
-    console.log(`[Auto-Import] Successfully generated ${OUTPUT_FILE} with ${registeredClasses.length} module(s):`);
+    console.log(
+      `[Auto-Import] Successfully generated ${OUTPUT_FILE} with ${registeredClasses.length} module(s):`
+    );
     for (const cls of registeredClasses) {
       console.log(`  -> ${cls}`);
     }

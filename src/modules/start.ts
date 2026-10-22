@@ -80,12 +80,10 @@ export class StartModule extends BaseModule {
 
       const caller = getCallerUser(ctx);
       const callerMention = getUserMention(caller);
-      const rawTitleName = caller?.first_name || (caller?.username ? `@${caller.username}` : 'there');
+      const rawTitleName =
+        caller?.first_name || (caller?.username ? `@${caller.username}` : 'there');
 
-      const keyboard = new InlineKeyboard().url(
-        'Catch me',
-        `https://t.me/${botUsername}`
-      );
+      const keyboard = new InlineKeyboard().url('Catch me', `https://t.me/${botUsername}`);
 
       await ctx.answerGuestQuery({
         type: 'article',

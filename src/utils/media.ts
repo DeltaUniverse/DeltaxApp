@@ -81,11 +81,7 @@ export function buildGuestMediaContainer(items: ExtractedMediaItem[]): string {
  * Safely truncates caption text to conform to Telegram's 1024-character caption limit,
  * taking overhead (metrics, signatures, footers) into account.
  */
-export function truncateCaption(
-  caption: string,
-  maxLen = 1024,
-  overhead = 0
-): string {
+export function truncateCaption(caption: string, maxLen = 1024, overhead = 0): string {
   if (!caption) return '';
   const available = Math.max(100, maxLen - overhead);
   if (caption.length <= available) return caption;

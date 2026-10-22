@@ -150,33 +150,37 @@ export class WebModule extends BaseModule {
         const keyboard = new InlineKeyboard().url('Open Link', targetUrl);
 
         if (ctx.isGuest) {
-          await ctx.answerGuestQuery({
-            type: 'photo',
-            id: `guest_web_${Date.now()}`,
-            photo_url: screenshotUrl,
-            thumbnail_url: screenshotUrl,
-            title: `Screenshot: ${domain}`,
-            caption,
-            parse_mode: 'HTML',
-            reply_markup: keyboard,
-          }).catch(async () => {
-            const mediaTag = `<img src="${escapeHtml(screenshotUrl)}" />`;
-            const mediaContainer = `<figure>${mediaTag}</figure>`;
-            const buttonRow = `<tg-button-row align="center">\n  <tg-button type="url" style="primary" url="${escapeHtml(targetUrl)}">Open Link</tg-button>\n</tg-button-row>`;
-            const richHtml = [mediaContainer, caption, buttonRow].join('\n\n');
-
-            await ctx.answerGuestQuery({
-              type: 'article',
-              id: `guest_web_art_${Date.now()}`,
-              title: `Screenshot: ${domain}`,
+          await ctx
+            .answerGuestQuery({
+              type: 'photo',
+              id: `guest_web_${Date.now()}`,
+              photo_url: screenshotUrl,
               thumbnail_url: screenshotUrl,
-              input_message_content: {
-                rich_message: {
-                  html: richHtml,
-                },
-              },
-            }).catch(() => {});
-          });
+              title: `Screenshot: ${domain}`,
+              caption,
+              parse_mode: 'HTML',
+              reply_markup: keyboard,
+            })
+            .catch(async () => {
+              const mediaTag = `<img src="${escapeHtml(screenshotUrl)}" />`;
+              const mediaContainer = `<figure>${mediaTag}</figure>`;
+              const buttonRow = `<tg-button-row align="center">\n  <tg-button type="url" style="primary" url="${escapeHtml(targetUrl)}">Open Link</tg-button>\n</tg-button-row>`;
+              const richHtml = [mediaContainer, caption, buttonRow].join('\n\n');
+
+              await ctx
+                .answerGuestQuery({
+                  type: 'article',
+                  id: `guest_web_art_${Date.now()}`,
+                  title: `Screenshot: ${domain}`,
+                  thumbnail_url: screenshotUrl,
+                  input_message_content: {
+                    rich_message: {
+                      html: richHtml,
+                    },
+                  },
+                })
+                .catch(() => {});
+            });
           return;
         }
 
@@ -194,7 +198,9 @@ export class WebModule extends BaseModule {
               caption,
               parse_mode: 'HTML',
               reply_markup: keyboard,
-              reply_parameters: ctx.msg?.message_id ? { message_id: ctx.msg.message_id } : undefined,
+              reply_parameters: ctx.msg?.message_id
+                ? { message_id: ctx.msg.message_id }
+                : undefined,
             }
           );
         } catch (err) {
@@ -224,9 +230,9 @@ export class WebModule extends BaseModule {
         if (!newPrefix) {
           await ctx.respond(
             `<b>Command Prefix</b>\n\n` +
-            `Current prefix: <code>${escapeHtml(ctx.prefix)}</code>\n\n` +
-            `To change: <code>${escapeHtml(ctx.prefix)}setprefix !</code>\n\n` +
-            `<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>`
+              `Current prefix: <code>${escapeHtml(ctx.prefix)}</code>\n\n` +
+              `To change: <code>${escapeHtml(ctx.prefix)}setprefix !</code>\n\n` +
+              `<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>`
           );
           return;
         }
@@ -241,9 +247,9 @@ export class WebModule extends BaseModule {
 
         await ctx.respond(
           `✅ <b>Prefix updated to <code>${escapeHtml(newPrefix)}</code>!</b>\n\n` +
-          `• <b>Direct/Group:</b> <code>${escapeHtml(newPrefix)}ss &lt;link&gt;</code>\n` +
-          `• <b>Group Mention:</b> <code>@${ctx.me?.username || 'deltaxapp'} ${escapeHtml(newPrefix)}ss &lt;link&gt;</code>\n\n` +
-          `<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>`
+            `• <b>Direct/Group:</b> <code>${escapeHtml(newPrefix)}ss &lt;link&gt;</code>\n` +
+            `• <b>Group Mention:</b> <code>@${ctx.me?.username || 'deltaxapp'} ${escapeHtml(newPrefix)}ss &lt;link&gt;</code>\n\n` +
+            `<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>`
         );
       },
       {

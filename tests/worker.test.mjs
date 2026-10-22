@@ -133,7 +133,11 @@ describe('Deltax App - Serverless Telegram Bot Worker', () => {
     const body = await res.json();
     assert.equal(body.ok, true);
     assert.equal(body.update_id, 1002);
-    assert.equal(backgroundPromiseHandled, true, 'Update must be dispatched non-blockingly via ctx.waitUntil');
+    assert.equal(
+      backgroundPromiseHandled,
+      true,
+      'Update must be dispatched non-blockingly via ctx.waitUntil'
+    );
   });
 
   test('returns 400 for malformed JSON webhook payload', async () => {
@@ -189,7 +193,10 @@ describe('Deltax App - Serverless Telegram Bot Worker', () => {
     const body = await res.json();
     assert.equal(body.ok, true);
     assert.equal(body.update_id, 1003);
-    assert.ok(handledPromise !== null, 'Should have passed update processing promise to ctx.waitUntil');
+    assert.ok(
+      handledPromise !== null,
+      'Should have passed update processing promise to ctx.waitUntil'
+    );
   });
 
   test('dispatches guest_message update non-blockingly', async () => {

@@ -137,7 +137,9 @@ export class CommandDispatcher {
           });
         }
 
-        const replyParameters = ctx.msg?.message_id ? { message_id: ctx.msg.message_id } : undefined;
+        const replyParameters = ctx.msg?.message_id
+          ? { message_id: ctx.msg.message_id }
+          : undefined;
         return await ctx.reply(text, {
           parse_mode: parseMode,
           reply_parameters: replyParameters,

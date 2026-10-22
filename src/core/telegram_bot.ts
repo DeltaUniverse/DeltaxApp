@@ -93,7 +93,8 @@ export class TelegramBotServer {
 
       if (this._currentExecutionCtx) {
         ctx.executionCtx = this._currentExecutionCtx;
-        ctx.waitUntil = (promise: Promise<unknown>) => this._currentExecutionCtx!.waitUntil(promise);
+        ctx.waitUntil = (promise: Promise<unknown>) =>
+          this._currentExecutionCtx!.waitUntil(promise);
       } else {
         ctx.waitUntil = (promise: Promise<unknown>) => {
           promise.catch((err) => console.error('[NonBlocking Task Error]:', err));
@@ -248,13 +249,10 @@ export class TelegramBotServer {
       const handlePromise = this._bot.handleUpdate(update as any);
       executionCtx.waitUntil(handlePromise);
 
-      return new Response(
-        JSON.stringify({ ok: true, update_id: update.update_id }),
-        {
-          status: 200,
-          headers: HTTP_HEADERS.JSON,
-        }
-      );
+      return new Response(JSON.stringify({ ok: true, update_id: update.update_id }), {
+        status: 200,
+        headers: HTTP_HEADERS.JSON,
+      });
     }
 
     return new Response(JSON.stringify({ error: 'Not found' }), {
@@ -318,14 +316,18 @@ export class TelegramBotServer {
       await this._moduleManager.syncCommands(env.BOT_TOKEN);
 
       return new Response(
-        JSON.stringify({ ok: true, message: 'Webhook registered successfully', result, webhookUrl }, null, 2),
+        JSON.stringify(
+          { ok: true, message: 'Webhook registered successfully', result, webhookUrl },
+          null,
+          2
+        ),
         { status: 200, headers: HTTP_HEADERS.JSON }
       );
     } catch (err: any) {
-      return new Response(
-        JSON.stringify({ ok: false, error: err.message }, null, 2),
-        { status: 500, headers: HTTP_HEADERS.JSON }
-      );
+      return new Response(JSON.stringify({ ok: false, error: err.message }, null, 2), {
+        status: 500,
+        headers: HTTP_HEADERS.JSON,
+      });
     }
   }
 
@@ -337,10 +339,10 @@ export class TelegramBotServer {
         headers: HTTP_HEADERS.JSON,
       });
     } catch (err: any) {
-      return new Response(
-        JSON.stringify({ ok: false, error: err.message }, null, 2),
-        { status: 500, headers: HTTP_HEADERS.JSON }
-      );
+      return new Response(JSON.stringify({ ok: false, error: err.message }, null, 2), {
+        status: 500,
+        headers: HTTP_HEADERS.JSON,
+      });
     }
   }
 
@@ -352,10 +354,10 @@ export class TelegramBotServer {
         { status: 200, headers: HTTP_HEADERS.JSON }
       );
     } catch (err: any) {
-      return new Response(
-        JSON.stringify({ ok: false, error: err.message }, null, 2),
-        { status: 500, headers: HTTP_HEADERS.JSON }
-      );
+      return new Response(JSON.stringify({ ok: false, error: err.message }, null, 2), {
+        status: 500,
+        headers: HTTP_HEADERS.JSON,
+      });
     }
   }
 }

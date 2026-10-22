@@ -49,18 +49,12 @@ export function getCallerUser(ctx: any): UserLike | undefined {
  * Resolves the target chat ID across direct chat and groups.
  */
 export function getChatId(ctx: any): number | string | undefined {
-  return (
-    ctx?.chat?.id ||
-    ctx?.msg?.chat?.id ||
-    ctx?.msg?.guest_bot_caller_chat?.id
-  );
+  return ctx?.chat?.id || ctx?.msg?.chat?.id || ctx?.msg?.guest_bot_caller_chat?.id;
 }
 
 export function isGuestMode(ctx: any): boolean {
   return Boolean(
-    ctx?.msg?.guest_bot_caller_user ||
-    ctx?.msg?.guest_query_id ||
-    ctx?.update?.guest_message
+    ctx?.msg?.guest_bot_caller_user || ctx?.msg?.guest_query_id || ctx?.update?.guest_message
   );
 }
 

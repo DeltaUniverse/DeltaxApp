@@ -179,10 +179,7 @@ class DatabaseService {
       return this.settingsCache.get(key);
     }
     if (!this.d1) return defaultValue;
-    const row = await this.d1
-      .prepare('SELECT value FROM settings WHERE key = ?')
-      .bind(key)
-      .first();
+    const row = await this.d1.prepare('SELECT value FROM settings WHERE key = ?').bind(key).first();
     if (row?.value !== undefined && row?.value !== null) {
       this.settingsCache.set(key, row.value);
       return row.value;
@@ -202,10 +199,7 @@ class DatabaseService {
   async deleteSetting(key) {
     this.settingsCache.delete(key);
     if (!this.d1) return true;
-    const res = await this.d1
-      .prepare('DELETE FROM settings WHERE key = ?')
-      .bind(key)
-      .run();
+    const res = await this.d1.prepare('DELETE FROM settings WHERE key = ?').bind(key).run();
     return (res.meta?.changes ?? 0) > 0;
   }
 }

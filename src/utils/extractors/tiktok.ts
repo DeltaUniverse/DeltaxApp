@@ -74,8 +74,7 @@ async function extractViaTikWM(url: string): Promise<ExtractedResult | null> {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'user-agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
         body: `url=${encodeURIComponent(url)}&hd=1`,
       });
@@ -108,9 +107,7 @@ function parseTikWMData(data: any): ExtractedResult | null {
   } else if (data.hdplay || data.play || data.wmplay) {
     // Video mode: Prefer HD watermark-free
     const rawPlay = data.hdplay || data.play || data.wmplay;
-    const videoUrl = rawPlay.startsWith('http')
-      ? rawPlay
-      : `https://www.tikwm.com${rawPlay}`;
+    const videoUrl = rawPlay.startsWith('http') ? rawPlay : `https://www.tikwm.com${rawPlay}`;
 
     items.push({
       type: 'video',
@@ -164,17 +161,13 @@ async function extractViaWebRehydration(id: string): Promise<ExtractedResult | n
     if (!rawJson) return null;
 
     const data = JSON.parse(rawJson);
-    const itemInfo =
-      data?.__DEFAULT_SCOPE__?.['webapp.video-detail']?.itemInfo?.itemStruct;
+    const itemInfo = data?.__DEFAULT_SCOPE__?.['webapp.video-detail']?.itemInfo?.itemStruct;
     if (!itemInfo) return null;
 
     const items: ExtractedMediaItem[] = [];
 
     // Image post / Photo mode
-    if (
-      Array.isArray(itemInfo.imagePost?.images) &&
-      itemInfo.imagePost.images.length > 0
-    ) {
+    if (Array.isArray(itemInfo.imagePost?.images) && itemInfo.imagePost.images.length > 0) {
       for (const img of itemInfo.imagePost.images) {
         const imgUrl = img.imageURL?.urlList?.[0] || img.displayImage?.urlList?.[0];
         if (imgUrl) {
