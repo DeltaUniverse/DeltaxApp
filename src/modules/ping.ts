@@ -15,11 +15,7 @@ export class PingModule extends BaseModule {
         await ctx.api.getMe().catch(() => {});
         const latency = Math.round(performance.now() - start);
 
-        await ctx.respond(
-          html`<b>Pong!</b> <code>${latency}ms</code>
-
-            <blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>`
-        );
+        await ctx.respond(html`<b>Pong!</b> <code>${latency}ms</code>`);
       },
       {
         description: 'Check bot latency and roundtrip',
