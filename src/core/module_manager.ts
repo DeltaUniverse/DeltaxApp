@@ -4,10 +4,10 @@
  * See LICENSE in the project root for license information.
  */
 
-import { Bot } from 'grammy';
+import type { Bot } from 'grammy';
 import type { BaseModule } from './base_module';
 import type { CommandDispatcher } from './command_dispatcher';
-import type { BotContext, CommandMeta, Env, ModuleConstructor } from '../types';
+import type { BotContext, Env, ModuleConstructor } from '../types';
 
 export type { ModuleConstructor };
 
@@ -140,7 +140,7 @@ export class ModuleManager {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ commands: commandsToSync }),
       });
-      const data = (await response.json()) as { ok: boolean };
+      const data = await response.json<{ ok: boolean }>();
       return Boolean(data?.ok);
     } catch (err) {
       console.error('[ModuleManager] Failed to sync commands with Telegram API:', err);

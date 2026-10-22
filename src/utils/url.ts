@@ -5,7 +5,7 @@
  */
 
 import { escapeRegex } from './misc';
-import { extractMessageUrls } from './telegram';
+import { extractMessageUrls, type MessageLike, type MessageEntityLike } from './telegram';
 import { findSupportedUrl, type SupportedPlatform } from './extractors';
 
 /**
@@ -37,11 +37,10 @@ export function parseDomainAndUrl(raw: string): { url: string; domain: string } 
  */
 export function extractTargetUrl(
   text: string,
-  replyMsg?: any,
+  replyMsg?: MessageLike | null,
   customPrefix?: string,
-  msgEntities?: any[]
+  msgEntities?: MessageEntityLike[]
 ): { url: string; domain: string } | null {
-  // 1. Check if command message itself contains text_link entities
   if (msgEntities) {
     for (const ent of msgEntities) {
       if (ent.type === 'text_link' && ent.url) {
@@ -51,10 +50,8 @@ export function extractTargetUrl(
     }
   }
 
-  // 2. Strip leading bot mention
   let cleaned = text.replace(/^@\w+\s+/i, '').trim();
 
-  // 3. Strip command prefixes and command name
   const prefixes = Array.from(new Set([customPrefix || '/', '/']));
   for (const p of prefixes) {
     const escP = escapeRegex(p);
@@ -64,7 +61,6 @@ export function extractTargetUrl(
       .trim();
   }
 
-  // 4. Try extracting from cleaned command arguments first
   const matchInArgs =
     cleaned.match(/https?:\/\/[^\s]+/i) ||
     cleaned.match(/\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/i);
@@ -74,7 +70,6 @@ export function extractTargetUrl(
     if (res) return res;
   }
 
-  // 5. If no URL in arguments, inspect the replied message
   if (replyMsg) {
     const { text: replyText, entityUrls } = extractMessageUrls(replyMsg);
 
@@ -104,11 +99,10 @@ export function extractTargetUrl(
  */
 export function extractDownloadTarget(
   text: string,
-  replyMsg?: any,
+  replyMsg?: MessageLike | null,
   _customPrefix?: string,
-  msgEntities?: any[]
+  msgEntities?: MessageEntityLike[]
 ): { url: string; platform: SupportedPlatform } | null {
-  // 1. Check if command message itself contains text_link entities
   if (msgEntities) {
     for (const ent of msgEntities) {
       if (ent.type === 'text_link' && ent.url) {
@@ -118,11 +112,9 @@ export function extractDownloadTarget(
     }
   }
 
-  // 2. Check text for supported URL
   const detectedInText = findSupportedUrl(text);
   if (detectedInText) return detectedInText;
 
-  // 3. If no URL in text, inspect replied message
   if (replyMsg) {
     const { text: replyText, entityUrls } = extractMessageUrls(replyMsg);
 

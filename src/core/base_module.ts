@@ -79,13 +79,10 @@ export abstract class BaseModule {
     return this.command(name, handler, options);
   }
 
-  protected on(
-    filter: FilterQuery,
-    handler: (ctx: BotContext) => Promise<unknown> | unknown
-  ): this {
+  protected on(filter: FilterQuery, handler: (ctx: BotContext) => Promise<unknown> | void): this {
     this._composer.on(filter, async (ctx, next) => {
       try {
-        await handler(ctx as BotContext);
+        await handler(ctx);
       } catch (error) {
         console.error(`[Module:${this.id}] Listener error on(${String(filter)}):`, error);
       }
@@ -96,7 +93,7 @@ export abstract class BaseModule {
 
   protected hears(
     pattern: string | RegExp,
-    handler: (ctx: BotContext) => Promise<unknown> | unknown
+    handler: (ctx: BotContext) => Promise<unknown> | void
   ): this {
     this._composer.hears(pattern, async (ctx) => {
       try {
@@ -110,7 +107,7 @@ export abstract class BaseModule {
 
   protected callbackQuery(
     trigger: string | RegExp,
-    handler: (ctx: BotContext) => Promise<unknown> | unknown
+    handler: (ctx: BotContext) => Promise<unknown> | void
   ): this {
     this._composer.callbackQuery(trigger, async (ctx) => {
       try {

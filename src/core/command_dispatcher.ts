@@ -4,10 +4,11 @@
  * See LICENSE in the project root for license information.
  */
 
+import type { InlineKeyboard } from 'grammy';
 import type { BotContext } from '../types';
 import { PrefixService, isOwner, escapeRegex } from './prefix_service';
 import { stripHtml } from '../html';
-import { HTML_TAGS, hasHtmlTags } from '../utils/telegram';
+import { HTML_TAGS, hasHtmlTags, type MessageLike } from '../utils/telegram';
 
 export { HTML_TAGS, hasHtmlTags };
 
@@ -23,13 +24,13 @@ export interface CommandContext extends BotContext {
   prefix: string;
   input: string;
   args: string[];
-  replyMsg?: any;
+  replyMsg?: MessageLike | null;
   isOwner: boolean;
   isGuest: boolean;
   respond: (text: string, options?: Record<string, unknown>) => Promise<unknown>;
 }
 
-export type CommandHandler = (ctx: CommandContext) => Promise<unknown> | unknown;
+export type CommandHandler = (ctx: CommandContext) => Promise<unknown> | void;
 
 interface RegisteredCommand {
   names: string[];
@@ -79,7 +80,8 @@ export class CommandDispatcher {
     const rawText = ctx.msg?.text || '';
     if (!rawText.trim()) return false;
 
-    const isGuest = Boolean((ctx.msg as any)?.guest_bot_caller_user || ctx.update?.guest_message);
+    const msg = ctx.msg as MessageLike | undefined;
+    const isGuest = Boolean(msg?.guest_bot_caller_user || ctx.update?.guest_message);
     const botUsername = ctx.me?.username || 'deltaxapp';
     const activePrefix = isGuest
       ? await PrefixService.getGuestPrefix(ctx.env)
@@ -100,7 +102,7 @@ export class CommandDispatcher {
     if (botUsername) usernames.add(botUsername.toLowerCase());
     usernames.add('deltaxapp');
 
-    const replyMsg = (ctx.msg as any)?.reply_to_message;
+    const replyMsg = msg?.reply_to_message;
     const isSenderOwner = isOwner(ctx);
     const args = input.trim()
       ? input
@@ -122,7 +124,7 @@ export class CommandDispatcher {
         const parseMode = isHtml ? 'HTML' : undefined;
 
         if (isGuest) {
-          const caller = (ctx.msg as any)?.guest_bot_caller_user || ctx.from;
+          const caller = msg?.guest_bot_caller_user || ctx.from;
           const title = caller?.first_name || 'Delta';
           return await ctx.answerGuestQuery({
             type: 'article',
@@ -133,7 +135,7 @@ export class CommandDispatcher {
               message_text: text,
               parse_mode: parseMode,
             },
-            reply_markup: options?.reply_markup as any,
+            reply_markup: options?.reply_markup as InlineKeyboard | undefined,
           });
         }
 
@@ -176,7 +178,7 @@ export class CommandDispatcher {
     const trimmed = text.trim();
     if (!trimmed) return null;
 
-    // Strict prefix enforcement: ONLY the configured activePrefix is parsed (no fallback, no exceptions)
+    // Only the configured activePrefix is accepted.
     const p = activePrefix || '/';
     const escP = escapeRegex(p);
 

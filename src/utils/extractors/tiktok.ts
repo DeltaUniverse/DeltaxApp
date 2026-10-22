@@ -39,6 +39,60 @@ export async function resolveTikTokShortUrl(url: string): Promise<string> {
   }
 }
 
+interface TikWMData {
+  id?: string | number;
+  title?: string;
+  images?: string[];
+  hdplay?: string;
+  play?: string;
+  wmplay?: string;
+  cover?: string;
+  width?: number;
+  height?: number;
+  author?: {
+    nickname?: string;
+    unique_id?: string;
+  };
+  digg_count?: number;
+  comment_count?: number;
+  play_count?: number;
+  share_count?: number;
+}
+
+interface TikWMResponse {
+  code?: number;
+  data?: TikWMData;
+}
+
+interface TikTokWebData {
+  __DEFAULT_SCOPE__?: {
+    'webapp.video-detail'?: {
+      itemInfo?: {
+        itemStruct?: {
+          id?: string | number;
+          desc?: string;
+          author?: {
+            nickname?: string;
+            uniqueId?: string;
+          };
+          imagePost?: {
+            images?: Array<{
+              imageURL?: { urlList?: string[] };
+              displayImage?: { urlList?: string[] };
+            }>;
+          };
+          video?: {
+            playAddr?: string;
+            cover?: string;
+            width?: number;
+            height?: number;
+          };
+        };
+      };
+    };
+  };
+}
+
 /**
  * Method 1: TikWM Guest API (GET + POST fallback, with hd=1).
  * From DeltaBox/PagerApi.
@@ -47,7 +101,6 @@ async function extractViaTikWM(url: string): Promise<ExtractedResult | null> {
   const endpoints = ['https://www.tikwm.com/api/', 'https://tikwm.com/api/'];
 
   for (const endpoint of endpoints) {
-    // 1. Try GET with hd=1
     try {
       const getUrl = `${endpoint}?url=${encodeURIComponent(url)}&hd=1`;
       const res = await fetch(getUrl, {
@@ -59,7 +112,7 @@ async function extractViaTikWM(url: string): Promise<ExtractedResult | null> {
       });
 
       if (res.ok) {
-        const json = (await res.json()) as any;
+        const json = await res.json<TikWMResponse>();
         if (json?.code === 0 && json.data) {
           return parseTikWMData(json.data);
         }
@@ -68,7 +121,6 @@ async function extractViaTikWM(url: string): Promise<ExtractedResult | null> {
       // Try next
     }
 
-    // 2. Try POST with hd=1
     try {
       const postRes = await fetch(endpoint, {
         method: 'POST',
@@ -80,7 +132,7 @@ async function extractViaTikWM(url: string): Promise<ExtractedResult | null> {
       });
 
       if (postRes.ok) {
-        const json = (await postRes.json()) as any;
+        const json = await postRes.json<TikWMResponse>();
         if (json?.code === 0 && json.data) {
           return parseTikWMData(json.data);
         }
@@ -93,29 +145,29 @@ async function extractViaTikWM(url: string): Promise<ExtractedResult | null> {
   return null;
 }
 
-function parseTikWMData(data: any): ExtractedResult | null {
+function parseTikWMData(data: TikWMData): ExtractedResult | null {
   const items: ExtractedMediaItem[] = [];
 
   if (Array.isArray(data.images) && data.images.length > 0) {
-    // Photo slide mode
     for (const imgUrl of data.images) {
       items.push({
         type: 'photo',
         url: imgUrl,
       });
     }
-  } else if (data.hdplay || data.play || data.wmplay) {
-    // Video mode: Prefer HD watermark-free
+  } else {
     const rawPlay = data.hdplay || data.play || data.wmplay;
-    const videoUrl = rawPlay.startsWith('http') ? rawPlay : `https://www.tikwm.com${rawPlay}`;
+    if (rawPlay) {
+      const videoUrl = rawPlay.startsWith('http') ? rawPlay : `https://www.tikwm.com${rawPlay}`;
 
-    items.push({
-      type: 'video',
-      url: videoUrl,
-      thumbnailUrl: data.cover,
-      width: data.width,
-      height: data.height,
-    });
+      items.push({
+        type: 'video',
+        url: videoUrl,
+        thumbnailUrl: data.cover,
+        width: data.width,
+        height: data.height,
+      });
+    }
   }
 
   if (items.length === 0) return null;
@@ -160,13 +212,12 @@ async function extractViaWebRehydration(id: string): Promise<ExtractedResult | n
     const rawJson = extractUniversalData(html);
     if (!rawJson) return null;
 
-    const data = JSON.parse(rawJson);
+    const data = JSON.parse(rawJson) as TikTokWebData;
     const itemInfo = data?.__DEFAULT_SCOPE__?.['webapp.video-detail']?.itemInfo?.itemStruct;
     if (!itemInfo) return null;
 
     const items: ExtractedMediaItem[] = [];
 
-    // Image post / Photo mode
     if (Array.isArray(itemInfo.imagePost?.images) && itemInfo.imagePost.images.length > 0) {
       for (const img of itemInfo.imagePost.images) {
         const imgUrl = img.imageURL?.urlList?.[0] || img.displayImage?.urlList?.[0];
@@ -178,7 +229,6 @@ async function extractViaWebRehydration(id: string): Promise<ExtractedResult | n
         }
       }
     } else if (itemInfo.video?.playAddr) {
-      // Standard video
       items.push({
         type: 'video',
         url: itemInfo.video.playAddr,
@@ -215,13 +265,11 @@ export async function extractTikTok(inputUrl: string): Promise<ExtractedResult |
     url = await resolveTikTokShortUrl(url);
   }
 
-  // 1. TikWM API (GET & POST)
   const tikwmResult = await extractViaTikWM(url);
   if (tikwmResult && tikwmResult.items.length > 0) {
     return tikwmResult;
   }
 
-  // 2. Web Rehydration Scraper
   const match = url.match(TIKTOK_URL_REGEX);
   if (match?.groups?.id) {
     const rehydResult = await extractViaWebRehydration(match.groups.id);

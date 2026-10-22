@@ -8,7 +8,16 @@ export * from '@grammyjs/parse-mode';
 
 export function escapeHtml(value: unknown): string {
   if (value === null || value === undefined) return '';
-  return String(value)
+  const str =
+    typeof value === 'string'
+      ? value
+      : typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint'
+        ? value.toString()
+        : typeof (value as { toString?: () => string }).toString === 'function' &&
+            (value as { toString: () => string }).toString !== Object.prototype.toString
+          ? (value as { toString: () => string }).toString()
+          : JSON.stringify(value);
+  return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

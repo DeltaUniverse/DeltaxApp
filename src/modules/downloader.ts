@@ -1,6 +1,6 @@
 import { InlineKeyboard } from 'grammy';
 import { BaseModule, PrefixService, type CommandContext } from '../core';
-import { html, code, link, rawHtml, escapeHtml, stripHtml, unescapeHtml } from '../html';
+import { html, rawHtml, escapeHtml, stripHtml, unescapeHtml } from '../html';
 import type { BotContext } from '../types';
 import {
   formatCount,
@@ -23,7 +23,6 @@ export function isUnprefixedDownloadCommand(text: string, activePrefix: string =
   if (!text) return false;
   const trimmed = text.trim();
 
-  // If text starts with the strictly active prefix, it's NOT unprefixed!
   const escP = escapeRegex(activePrefix || '/');
   if (new RegExp(`^${escP}(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i').test(trimmed)) {
     return false;
@@ -32,7 +31,6 @@ export function isUnprefixedDownloadCommand(text: string, activePrefix: string =
     return false;
   }
 
-  // Matches un-prefixed "@bot dl ...", "dl ...", or wrong prefix (e.g. "/dl" when active is "!")
   if (/^@\w+\s+(?:dl|download)(?:\s+|$|[?#])/i.test(trimmed)) return true;
   if (/^(?:dl|download)(?:\s+|$|[?#])/i.test(trimmed)) return true;
   if (
@@ -46,9 +44,6 @@ export function isUnprefixedDownloadCommand(text: string, activePrefix: string =
   return false;
 }
 
-/**
- * Checks if a message is intended as a download command with strict prefix requirement
- */
 export function isDownloadRequest(
   text: string,
   botUsername?: string,
@@ -58,11 +53,9 @@ export function isDownloadRequest(
   const trimmed = text.trim();
   const escP = escapeRegex(activePrefix || '/');
 
-  // 1. Direct command: e.g. "!dl", "!download" matching strictly active prefix
   const directRegex = new RegExp(`^${escP}(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
   if (directRegex.test(trimmed)) return true;
 
-  // 2. Mention followed by prefixed command: e.g. "@deltaxapp !dl"
   const mentionRegex = new RegExp(`^@\\w+\\s+${escP}(?:dl|download)(?:\\s+|$|[?#])`, 'i');
   if (mentionRegex.test(trimmed)) return true;
 
@@ -76,7 +69,6 @@ export class DownloaderModule extends BaseModule {
   readonly version = '1.0.0';
 
   public setup(): void {
-    // 1. Explicit /dl or /download command (supports direct argument or replying to a link)
     this.command(
       ['dl', 'download'],
       async (ctx: CommandContext) => {
@@ -103,7 +95,6 @@ export class DownloaderModule extends BaseModule {
       }
     );
 
-    // 2. Direct 1-on-1 private chat link paste without command
     this.on('message:text', async (ctx: BotContext) => {
       if (ctx.chat?.type === 'private') {
         const text = ctx.message?.text || '';
@@ -116,12 +107,11 @@ export class DownloaderModule extends BaseModule {
       }
     });
 
-    // 3. Raw mention without command: "@deltaxapp <link>" (only if NOT a reply)
     this.on('guest_message:text', async (ctx: BotContext) => {
       const text = ctx.msg?.text || '';
-      const replyMsg = (ctx.msg as any)?.reply_to_message;
+      const replyMsg = ctx.msg?.reply_to_message;
 
-      // Strict filter: If mentioned in a reply, do NOT auto-download
+      // Skip auto-download when mentioned in a reply thread.
       if (replyMsg) return;
 
       const guestPrefix = await PrefixService.getGuestPrefix(ctx.env);
@@ -150,9 +140,10 @@ export class DownloaderModule extends BaseModule {
     const chatId = getChatId(ctx);
 
     const replyMessageId = ctx.msg?.message_id;
-    const isGuestQuery = Boolean((ctx.msg as any)?.guest_query_id);
+    const isGuestQuery = Boolean(
+      (ctx.msg as { guest_query_id?: string } | undefined)?.guest_query_id
+    );
 
-    // Indicate progress in chat
     if (chatId) {
       await ctx.api.sendChatAction(chatId, 'upload_video').catch(() => {});
     }
@@ -192,7 +183,6 @@ export class DownloaderModule extends BaseModule {
       return;
     }
 
-    // 1. Engagement metrics
     const metrics: string[] = [];
     const stats = result.stats || {};
     if (stats.views !== undefined && stats.views !== null && stats.views !== 0) {
@@ -209,10 +199,8 @@ export class DownloaderModule extends BaseModule {
     }
     const metricsLine = metrics.length > 0 ? metrics.join('  ') : '';
 
-    // 2. Clean caption text safely without incomplete sanitization or double-escaping
     const cleanCaption = result.caption ? unescapeHtml(stripHtml(result.caption)).trim() : '';
 
-    // 3. Author attribution & watermark footer
     const authorName = result.author?.username
       ? result.author.username.startsWith('@')
         ? result.author.username
@@ -233,27 +221,22 @@ export class DownloaderModule extends BaseModule {
       return parts.join('\n\n');
     };
 
-    // 1. Deliver native rich media (Slideshow / Figure) via rich_message
     if (isGuestQuery) {
       const blocks: string[] = [];
 
-      // 1. Engagement metrics
       if (metrics.length > 0) {
         blocks.push(`<p><b>${metrics.join('&nbsp;&nbsp;')}</b></p>`);
       }
 
-      // 2. Caption in expandable blockquote
       if (cleanCaption) {
         const formattedLines = escapeHtml(cleanCaption).replace(/\r?\n/g, '<br/>');
         blocks.push(`<blockquote expandable>${formattedLines}</blockquote>`);
       }
 
-      // 3. Author attribution
       if (authorLine) {
         blocks.push(`<p>${authorLine}</p>`);
       }
 
-      // 4. Copyright quote with extra spacing
       blocks.push(`<blockquote>${brandLine}</blockquote>`);
 
       const mediaContainer = buildGuestMediaContainer(result.items);
@@ -274,7 +257,6 @@ export class DownloaderModule extends BaseModule {
       return;
     }
 
-    // 2. Standard Chat / Command Mode: Deliver via sendPhoto/sendVideo or sendMediaGroup
     // Truncate cleanly for 1024-character caption limit in standard Telegram chats
     const overhead =
       (metricsLine ? metricsLine.length + 2 : 0) +
@@ -292,7 +274,6 @@ export class DownloaderModule extends BaseModule {
       }
 
       if (result.items.length === 1) {
-        // Single media delivery with URL button
         const item = result.items[0];
         if (item.type === 'video') {
           await ctx.api.sendVideo(chatId, item.url, {
@@ -310,7 +291,6 @@ export class DownloaderModule extends BaseModule {
           });
         }
       } else {
-        // Native Telegram ALBUM (Media Group) delivery
         // Telegram sendMediaGroup supports albums between 2 and 10 items
         const chunks = chunkMediaItems(result.items, 10);
         for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {

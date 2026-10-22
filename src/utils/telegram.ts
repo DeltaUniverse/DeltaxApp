@@ -13,13 +13,36 @@ export interface UserLike {
   username?: string;
 }
 
+export interface MessageEntityLike {
+  type: string;
+  url?: string;
+  offset?: number;
+  length?: number;
+}
+
+export interface MessageLike {
+  text?: string;
+  caption?: string;
+  entities?: MessageEntityLike[];
+  caption_entities?: MessageEntityLike[];
+  chat?: { id?: number | string };
+  guest_bot_caller_user?: UserLike;
+  guest_bot_caller_chat?: { id?: number | string };
+  guest_query_id?: string;
+  message_id?: number;
+  reply_to_message?: MessageLike;
+}
+
+export interface ContextLike {
+  chat?: { id?: number | string };
+  from?: UserLike;
+  msg?: MessageLike;
+  message?: MessageLike;
+  update?: { guest_message?: unknown };
+}
+
 /**
- * Builds an HTML user mention string:
- * - Uses `<a href="tg://user?id=...">first_name</a>` if first_name and id exist
- * - Falls back to `@username` if no first_name
- * - Falls back to plain escaped first_name if no id
- * - Falls back to `<a href="tg://user?id=...">User</a>` if only id is present
- * - Falls back to 'there' if user is undefined or empty
+ * Builds an HTML user mention string.
  */
 export function getUserMention(user?: UserLike | null): string {
   if (!user) return 'there';
@@ -38,30 +61,27 @@ export function getUserMention(user?: UserLike | null): string {
   return 'there';
 }
 
-/**
- * Resolves the caller user object from chat context.
- */
-export function getCallerUser(ctx: any): UserLike | undefined {
+export function getCallerUser(ctx: ContextLike | null | undefined): UserLike | undefined {
   return ctx?.msg?.guest_bot_caller_user || ctx?.from;
 }
 
-/**
- * Resolves the target chat ID across direct chat and groups.
- */
-export function getChatId(ctx: any): number | string | undefined {
+export function getChatId(ctx: ContextLike | null | undefined): number | string | undefined {
   return ctx?.chat?.id || ctx?.msg?.chat?.id || ctx?.msg?.guest_bot_caller_chat?.id;
 }
 
-export function isGuestMode(ctx: any): boolean {
+export function isGuestMode(ctx: ContextLike | null | undefined): boolean {
   return Boolean(
     ctx?.msg?.guest_bot_caller_user || ctx?.msg?.guest_query_id || ctx?.update?.guest_message
   );
 }
 
 /**
- * Extracts raw text/caption and all URLs from message entities (text_link and url).
+ * Extracts raw text/caption and all URLs from message entities.
  */
-export function extractMessageUrls(msg?: any): { text: string; entityUrls: string[] } {
+export function extractMessageUrls(msg?: MessageLike | null): {
+  text: string;
+  entityUrls: string[];
+} {
   if (!msg) return { text: '', entityUrls: [] };
 
   const text = msg.text || msg.caption || '';

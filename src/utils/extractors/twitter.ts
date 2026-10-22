@@ -4,9 +4,104 @@ const TWITTER_BEARER =
   'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
 
 export const TWITTER_URL_REGEX =
-  /https?:\/\/(?:www\.)?(?:fx|vx|fixup)?(?:twitter|x)\.com\/(?:[^\/\s]+)\/status\/(?<id>\d+)/i;
+  /https?:\/\/(?:www\.)?(?:fx|vx|fixup)?(?:twitter|x)\.com\/(?:[^/\s]+)\/status\/(?<id>\d+)/i;
 
 export const TCO_URL_REGEX = /https?:\/\/t\.co\/(?<id>[\w-]+)/i;
+
+interface FxMediaVariant {
+  content_type?: string;
+  url?: string;
+  bitrate?: number;
+}
+
+interface FxMedia {
+  type?: 'video' | 'gif' | 'photo';
+  url?: string;
+  thumbnail_url?: string;
+  width?: number;
+  height?: number;
+  variants?: FxMediaVariant[];
+}
+
+interface FxTweet {
+  author?: {
+    name?: string;
+    screen_name?: string;
+  };
+  text?: string;
+  media?: {
+    all?: FxMedia[];
+    photos?: Array<{ url: string }>;
+    videos?: Array<{
+      url?: string;
+      thumbnail_url?: string;
+      variants?: FxMediaVariant[];
+    }>;
+  };
+  likes?: number;
+  favorites?: number;
+  replies?: number;
+  retweets?: number;
+  views?: number;
+}
+
+interface FxTwitterResponse {
+  tweet?: FxTweet;
+}
+
+interface TwitterMediaVariant {
+  content_type?: string;
+  url?: string;
+  bitrate?: number;
+}
+
+interface TwitterMediaEntity {
+  type?: string;
+  media_url_https?: string;
+  video_info?: {
+    variants?: TwitterMediaVariant[];
+  };
+}
+
+interface TwitterTweetResult {
+  data?: {
+    tweetResult?: {
+      result?: {
+        legacy?: {
+          full_text?: string;
+          extended_entities?: { media?: TwitterMediaEntity[] };
+          entities?: { media?: TwitterMediaEntity[] };
+        };
+        tweet?: {
+          legacy?: {
+            full_text?: string;
+            extended_entities?: { media?: TwitterMediaEntity[] };
+            entities?: { media?: TwitterMediaEntity[] };
+          };
+        };
+        core?: {
+          user_results?: {
+            result?: {
+              legacy?: {
+                name?: string;
+                screen_name?: string;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+}
+
+interface VxTwitterResponse {
+  error?: unknown;
+  mediaURLs?: string[];
+  hasMedia?: string;
+  text?: string;
+  user_name?: string;
+  user_screen_name?: string;
+}
 
 /**
  * Resolve t.co short links to canonical tweet URL
@@ -36,7 +131,7 @@ async function extractViaFxTwitter(tweetId: string): Promise<ExtractedResult | n
     });
 
     if (!res.ok) return null;
-    const data = (await res.json()) as any;
+    const data = await res.json<FxTwitterResponse>();
     if (!data?.tweet) return null;
 
     const tweet = data.tweet;
@@ -53,18 +148,23 @@ async function extractViaFxTwitter(tweetId: string): Promise<ExtractedResult | n
         if (m.type === 'video' || m.type === 'gif') {
           const variants = m.variants || [];
           const mp4s = variants
-            .filter((v: any) => v.content_type === 'video/mp4' && v.url)
-            .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
+            .filter(
+              (v): v is FxMediaVariant & { url: string } =>
+                v.content_type === 'video/mp4' && Boolean(v.url)
+            )
+            .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
 
           const bestUrl = mp4s[0]?.url || m.url;
-          items.push({
-            type: 'video',
-            url: bestUrl,
-            thumbnailUrl: m.thumbnail_url,
-            width: m.width,
-            height: m.height,
-          });
-        } else if (m.type === 'photo') {
+          if (bestUrl) {
+            items.push({
+              type: 'video',
+              url: bestUrl,
+              thumbnailUrl: m.thumbnail_url,
+              width: m.width,
+              height: m.height,
+            });
+          }
+        } else if (m.type === 'photo' && m.url) {
           items.push({
             type: 'photo',
             url: m.url,
@@ -73,25 +173,31 @@ async function extractViaFxTwitter(tweetId: string): Promise<ExtractedResult | n
           });
         }
       }
-    } else if (tweet.media?.photos?.length > 0) {
+    } else if (tweet.media?.photos && tweet.media.photos.length > 0) {
       for (const p of tweet.media.photos) {
         items.push({
           type: 'photo',
           url: p.url,
         });
       }
-    } else if (tweet.media?.videos?.length > 0) {
+    } else if (tweet.media?.videos && tweet.media.videos.length > 0) {
       for (const v of tweet.media.videos) {
         const variants = v.variants || [];
         const mp4s = variants
-          .filter((va: any) => va.content_type === 'video/mp4' && va.url)
-          .sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
+          .filter(
+            (va): va is FxMediaVariant & { url: string } =>
+              va.content_type === 'video/mp4' && Boolean(va.url)
+          )
+          .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
 
-        items.push({
-          type: 'video',
-          url: mp4s[0]?.url || v.url,
-          thumbnailUrl: v.thumbnail_url,
-        });
+        const bestUrl = mp4s[0]?.url || v.url;
+        if (bestUrl) {
+          items.push({
+            type: 'video',
+            url: bestUrl,
+            thumbnailUrl: v.thumbnail_url,
+          });
+        }
       }
     }
 
@@ -130,7 +236,7 @@ async function getGuestToken(): Promise<string | null> {
       },
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as { guest_token?: string };
+    const data = await res.json<{ guest_token?: string }>();
     return data.guest_token || null;
   } catch {
     return null;
@@ -175,7 +281,7 @@ async function extractViaGuestApi(tweetId: string): Promise<ExtractedResult | nu
   });
 
   if (!res.ok) return null;
-  const data = (await res.json()) as any;
+  const data = await res.json<TwitterTweetResult>();
   const tweetResult = data?.data?.tweetResult?.result;
   if (!tweetResult) return null;
 
@@ -184,15 +290,18 @@ async function extractViaGuestApi(tweetId: string): Promise<ExtractedResult | nu
 
   const user = tweetResult.core?.user_results?.result?.legacy;
   const caption = tweet.full_text || '';
-  const mediaEntities: any[] = tweet.extended_entities?.media || tweet.entities?.media || [];
+  const mediaEntities = tweet.extended_entities?.media || tweet.entities?.media || [];
 
   const items: ExtractedMediaItem[] = [];
 
   for (const entity of mediaEntities) {
     if (entity.type === 'video' || entity.type === 'animated_gif') {
-      const variants: any[] = entity.video_info?.variants || [];
+      const variants = entity.video_info?.variants || [];
       const mp4s = variants
-        .filter((v) => v.content_type === 'video/mp4' && v.url)
+        .filter(
+          (v): v is TwitterMediaVariant & { url: string } =>
+            v.content_type === 'video/mp4' && Boolean(v.url)
+        )
         .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
 
       if (mp4s.length > 0) {
@@ -236,7 +345,7 @@ async function extractViaVxTwitter(tweetId: string): Promise<ExtractedResult | n
     });
 
     if (!res.ok) return null;
-    const data = (await res.json()) as any;
+    const data = await res.json<VxTwitterResponse>();
     if (!data || data.error) return null;
 
     const items: ExtractedMediaItem[] = [];
@@ -272,9 +381,7 @@ async function extractViaVxTwitter(tweetId: string): Promise<ExtractedResult | n
 
 /**
  * Extract Twitter media chaining:
- * 1. FxTwitter API (fastest, unauthenticated, full media array)
- * 2. Official Guest GraphQL API (with active x-guest-token)
- * 3. VxTwitter fallback
+ * FxTwitter API -> Twitter GraphQL Guest API -> VxTwitter
  */
 export async function extractTwitter(inputUrl: string): Promise<ExtractedResult | null> {
   let url = inputUrl;
@@ -286,19 +393,16 @@ export async function extractTwitter(inputUrl: string): Promise<ExtractedResult 
   if (!match?.groups?.id) return null;
   const tweetId = match.groups.id;
 
-  // 1. FxTwitter API
   const fxResult = await extractViaFxTwitter(tweetId);
   if (fxResult && fxResult.items.length > 0) {
     return fxResult;
   }
 
-  // 2. Official Twitter GraphQL Guest API
   const guestResult = await extractViaGuestApi(tweetId);
   if (guestResult && guestResult.items.length > 0) {
     return guestResult;
   }
 
-  // 3. VxTwitter fallback
   const vxResult = await extractViaVxTwitter(tweetId);
   if (vxResult && vxResult.items.length > 0) {
     return vxResult;

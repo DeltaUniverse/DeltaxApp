@@ -1,14 +1,10 @@
 import { InlineKeyboard, InputFile } from 'grammy';
-import { BaseModule, PrefixService, isOwner, type CommandContext } from '../core';
+import { BaseModule, PrefixService, type CommandContext } from '../core';
 import { escapeHtml } from '../html';
-import type { BotContext } from '../types';
 import { escapeRegex, extractTargetUrl } from '../utils';
 
 /**
  * Checks if a message is intended as a screenshot command.
- * STRICTLY enforces prefix:
- * e.g. "!ss google.com", "/ss google.com", "@deltaxapp !ss google.com", "@deltaxapp /ss google.com"
- * NEVER matches plain "ss google.com" or "@deltaxapp ss google.com" without prefix!
  */
 export function isScreenshotRequest(
   text: string,
@@ -19,11 +15,9 @@ export function isScreenshotRequest(
   const trimmed = text.trim();
   const escP = escapeRegex(activePrefix || '/');
 
-  // 1. Direct command: e.g. "!ss", "!web" matching strictly active prefix
   const directRegex = new RegExp(`^${escP}(?:ss|web)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
   if (directRegex.test(trimmed)) return true;
 
-  // 2. Mention followed by prefixed command: e.g. "@deltaxapp !ss"
   const mentionRegex = new RegExp(`^@\\w+\\s+${escP}(?:ss|web)(?:\\s+|$|[?#])`, 'i');
   if (mentionRegex.test(trimmed)) return true;
 
@@ -114,7 +108,6 @@ export class WebModule extends BaseModule {
   readonly version = '1.0.0';
 
   public setup(): void {
-    // 1. /ss or /web screenshot command
     this.command(
       ['ss', 'web'],
       async (ctx: CommandContext) => {
@@ -222,7 +215,6 @@ export class WebModule extends BaseModule {
       }
     );
 
-    // 2. /setprefix command (Owner Only - Gated by CommandDispatcher!)
     this.command(
       ['setprefix'],
       async (ctx: CommandContext) => {

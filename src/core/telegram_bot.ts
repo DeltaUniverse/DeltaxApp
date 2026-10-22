@@ -4,7 +4,8 @@
  * See LICENSE in the project root for license information.
  */
 
-import { Bot, GrammyError, HttpError } from 'grammy';
+import { Bot } from 'grammy';
+import type { Update } from 'grammy/types';
 import { FormattedString } from '@grammyjs/parse-mode';
 import { ModuleManager, type ModuleConstructor } from './module_manager';
 import { CommandDispatcher } from './command_dispatcher';
@@ -49,20 +50,21 @@ export class TelegramBotServer {
 
       try {
         return await prev(method, payload, signal);
-      } catch (err: any) {
-        const errMsg = String(err?.description || err?.message || '');
+      } catch (err: unknown) {
+        const errObj = err as { description?: string; message?: string } | null;
+        const errMsg = String(errObj?.description || errObj?.message || '');
         if (errMsg.toLowerCase().includes("can't parse entities")) {
           if (payload && typeof payload === 'object') {
             const p = { ...(payload as Record<string, unknown>) };
             delete p.parse_mode;
             if (Array.isArray(p.media)) {
-              p.media = p.media.map((m: any) => {
+              p.media = (p.media as Array<Record<string, unknown>>).map((m) => {
                 const item = { ...m };
                 delete item.parse_mode;
                 return item;
               });
             }
-            return await prev(method, p as any, signal);
+            return await prev(method, p as unknown as typeof payload, signal);
           }
         }
         throw err;
@@ -72,7 +74,6 @@ export class TelegramBotServer {
     this._commandDispatcher = new CommandDispatcher();
     this._moduleManager = new ModuleManager(this._bot, this._commandDispatcher);
 
-    // Root context enrichment
     this._bot.use(async (ctx, next) => {
       if (this._currentEnv) {
         ctx.env = this._currentEnv;
@@ -102,7 +103,7 @@ export class TelegramBotServer {
       }
 
       const originalReply = ctx.reply.bind(ctx);
-      ctx.reply = ((textOrFmt: unknown, other?: Record<string, unknown>) => {
+      ctx.reply = (textOrFmt: unknown, other?: Record<string, unknown>) => {
         if (textOrFmt instanceof FormattedString) {
           return originalReply(textOrFmt.text, {
             entities: textOrFmt.entities,
@@ -110,7 +111,7 @@ export class TelegramBotServer {
           });
         }
         return originalReply(textOrFmt as string, other);
-      }) as typeof ctx.reply;
+      };
 
       return next();
     });
@@ -157,7 +158,7 @@ export class TelegramBotServer {
     if (!this._isInitialized) {
       try {
         await this._bot.init();
-      } catch (err) {
+      } catch {
         this._bot.botInfo = {
           id: 123456789,
           is_bot: true,
@@ -238,7 +239,7 @@ export class TelegramBotServer {
 
       let update: Record<string, unknown>;
       try {
-        update = (await request.json()) as Record<string, unknown>;
+        update = await request.json<Record<string, unknown>>();
       } catch {
         return new Response(JSON.stringify({ ok: false, error: 'Malformed JSON payload' }), {
           status: 400,
@@ -246,7 +247,7 @@ export class TelegramBotServer {
         });
       }
 
-      const handlePromise = this._bot.handleUpdate(update as any);
+      const handlePromise = this._bot.handleUpdate(update as unknown as Update);
       executionCtx.waitUntil(handlePromise);
 
       return new Response(JSON.stringify({ ok: true, update_id: update.update_id }), {
@@ -323,8 +324,9 @@ export class TelegramBotServer {
         ),
         { status: 200, headers: HTTP_HEADERS.JSON }
       );
-    } catch (err: any) {
-      return new Response(JSON.stringify({ ok: false, error: err.message }, null, 2), {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return new Response(JSON.stringify({ ok: false, error: message }, null, 2), {
         status: 500,
         headers: HTTP_HEADERS.JSON,
       });
@@ -338,8 +340,9 @@ export class TelegramBotServer {
         status: 200,
         headers: HTTP_HEADERS.JSON,
       });
-    } catch (err: any) {
-      return new Response(JSON.stringify({ ok: false, error: err.message }, null, 2), {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return new Response(JSON.stringify({ ok: false, error: message }, null, 2), {
         status: 500,
         headers: HTTP_HEADERS.JSON,
       });
@@ -353,8 +356,9 @@ export class TelegramBotServer {
         JSON.stringify({ ok: true, message: 'Webhook deleted', result }, null, 2),
         { status: 200, headers: HTTP_HEADERS.JSON }
       );
-    } catch (err: any) {
-      return new Response(JSON.stringify({ ok: false, error: err.message }, null, 2), {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return new Response(JSON.stringify({ ok: false, error: message }, null, 2), {
         status: 500,
         headers: HTTP_HEADERS.JSON,
       });

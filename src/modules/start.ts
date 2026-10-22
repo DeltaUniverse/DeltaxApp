@@ -16,7 +16,6 @@ export class StartModule extends BaseModule {
   readonly version = '1.0.0';
 
   public setup(): void {
-    // 1. Regular /start command in private/group chat
     this.command(
       ['start'],
       async (ctx: CommandContext) => {
@@ -46,12 +45,11 @@ export class StartModule extends BaseModule {
       'Start Delta and display greeting'
     );
 
-    // 2. Fallback mention without download link
     this.on('guest_message:text', async (ctx: BotContext) => {
       const text = ctx.msg?.text || '';
-      const replyMsg = (ctx.msg as any)?.reply_to_message;
+      const replyMsg = ctx.msg?.reply_to_message;
 
-      // STRICT FILTER: If mentioned by reply, SKIP! Never show greeting when mentioned in a reply
+      // Avoid showing greeting when the bot is referenced inside a reply thread.
       if (replyMsg) {
         return;
       }
@@ -59,17 +57,11 @@ export class StartModule extends BaseModule {
       const botUsername = ctx.me?.username || 'deltaxapp';
       const guestPrefix = await PrefixService.getGuestPrefix(ctx.env);
 
-      // If user typed an un-prefixed command (e.g. "@deltaxapp dl <link>"),
-      // fall through to show the help greeting so user knows prefix is required
-      if (isUnprefixedDownloadCommand(text, guestPrefix)) {
-        // Fall through to show greeting
-      } else {
-        // If a downloader URL is present, let DownloaderModule handle it
+      if (!isUnprefixedDownloadCommand(text, guestPrefix)) {
         if (findSupportedUrl(text)) {
           return;
         }
 
-        // If a web screenshot or setprefix command is present, let WebModule handle it
         if (
           isScreenshotRequest(text, botUsername, guestPrefix) ||
           isSetPrefixRequest(text, botUsername, guestPrefix)

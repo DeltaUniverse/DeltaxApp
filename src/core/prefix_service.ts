@@ -18,7 +18,8 @@ export const DEFAULT_OWNER_ID = 7492470603;
 export { escapeRegex };
 
 export function isOwner(ctx: BotContext): boolean {
-  const caller = (ctx.msg as any)?.guest_bot_caller_user || ctx.from;
+  const msg = ctx.msg as { guest_bot_caller_user?: { id?: number | string } } | undefined;
+  const caller = msg?.guest_bot_caller_user || ctx.from;
   const callerId = caller?.id ? Number(caller.id) : null;
   const configuredOwnerId = ctx.env?.OWNER_ID ? Number(ctx.env.OWNER_ID) : DEFAULT_OWNER_ID;
   return Boolean(callerId && callerId === configuredOwnerId);

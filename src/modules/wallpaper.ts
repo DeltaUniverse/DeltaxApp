@@ -59,48 +59,34 @@ const BING_MARKETS = [
  * Friendly market aliases mapping country codes/names to Bing markets.
  */
 const MARKET_ALIASES: Record<string, string> = {
-  // United States
   us: 'en-US',
   usa: 'en-US',
-  // China
   cn: 'zh-CN',
   zh: 'zh-CN',
   china: 'zh-CN',
-  // Japan
   jp: 'ja-JP',
   ja: 'ja-JP',
   japan: 'ja-JP',
-  // United Kingdom
   uk: 'en-GB',
   gb: 'en-GB',
-  // Germany
   de: 'de-DE',
   germany: 'de-DE',
-  // France
   fr: 'fr-FR',
   france: 'fr-FR',
-  // Canada
   ca: 'en-CA',
   canada: 'en-CA',
-  // Australia
   au: 'en-AU',
   australia: 'en-AU',
-  // India
   in: 'en-IN',
   india: 'en-IN',
-  // Italy
   it: 'it-IT',
   italy: 'it-IT',
-  // Spain
   es: 'es-ES',
   spain: 'es-ES',
-  // Brazil
   br: 'pt-BR',
   brazil: 'pt-BR',
-  // New Zealand
   nz: 'en-NZ',
   newzealand: 'en-NZ',
-  // Global / Rest of World
   row: 'en-ROW',
   global: 'en-ROW',
   world: 'en-ROW',
@@ -179,7 +165,7 @@ async function fetchBingWallpaper(
     throw new Error(`Bing API returned HTTP ${res.status}`);
   }
 
-  const data = (await res.json()) as {
+  const data = await res.json<{
     images?: Array<{
       startdate?: string;
       enddate?: string;
@@ -189,7 +175,7 @@ async function fetchBingWallpaper(
       copyrightlink?: string;
       title?: string;
     }>;
-  };
+  }>();
 
   const image = data?.images?.[0];
   if (!image) {
@@ -367,7 +353,6 @@ export class WallpaperModule extends BaseModule {
           return;
         }
 
-        // Standard Chat Mode
         if (!chatId) return;
 
         try {

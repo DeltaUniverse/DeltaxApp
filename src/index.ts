@@ -8,17 +8,12 @@ import { Hono } from 'hono';
 import { TelegramBotServer } from './core';
 import { AUTO_MODULES } from './modules';
 import type { Env } from './types';
-import { HTTP_HEADERS } from './config';
 
-/**
- * Singleton bot server instance to leverage isolate memory caching across warm requests
- */
 let botServerInstance: TelegramBotServer | null = null;
 
 export function getBotServer(token: string): TelegramBotServer {
   if (!botServerInstance) {
     botServerInstance = new TelegramBotServer(token);
-    // Auto-register all discovered modules
     botServerInstance.registerModules(AUTO_MODULES);
     console.log(
       `[Worker] Initialized TelegramBotServer with ${AUTO_MODULES.length} auto-loaded modules.`
@@ -27,12 +22,8 @@ export function getBotServer(token: string): TelegramBotServer {
   return botServerInstance;
 }
 
-/**
- * Hono Application for Cloudflare Workers
- */
 const app = new Hono<{ Bindings: Env }>();
 
-// Guard against missing BOT_TOKEN
 app.use('*', async (c, next) => {
   if (!c.env.BOT_TOKEN) {
     return c.json(
@@ -47,10 +38,9 @@ app.use('*', async (c, next) => {
   await next();
 });
 
-// Delegate all routing cleanly to server.handleRequest (which maintains 100% test compatibility)
 app.all('*', async (c) => {
   const server = getBotServer(c.env.BOT_TOKEN);
-  return server.handleRequest(c.req.raw, c.env, c.executionCtx as any);
+  return server.handleRequest(c.req.raw, c.env, c.executionCtx as ExecutionContext);
 });
 
 export default app;

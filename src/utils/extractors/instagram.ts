@@ -2,18 +2,67 @@ import type { ExtractedResult, ExtractedMediaItem } from './types';
 import { randomAlphaNumeric, parseKNumber } from '../misc';
 
 export const INSTAGRAM_SHARE_REGEX =
-  /https?:\/\/(?:www\.)?(?:dd)?instagram\.com\/share\/(?:(?:reels?|video|s|p)\/)?(?<id>[^\/\?\s]+)/i;
+  /https?:\/\/(?:www\.)?(?:dd)?instagram\.com\/share\/(?:(?:reels?|video|s|p)\/)?(?<id>[^/?\s]+)/i;
 
 export const INSTAGRAM_URL_REGEX =
   /https?:\/\/(?:www\.)?(?:dd)?instagram\.com\/(?:reels?|p|tv)\/(?<id>[a-zA-Z0-9_-]+)/i;
 
-function findObjectWithKey(obj: any, targetKey: string, depth = 0): any {
+interface InstagramCandidate {
+  url?: string;
+  width?: number;
+  height?: number;
+}
+
+interface InstagramMediaItem {
+  video_url?: string;
+  video_versions?: Array<{ url: string }>;
+  display_uri?: string;
+  display_url?: string;
+  image_versions2?: { candidates?: InstagramCandidate[] };
+}
+
+interface PolarisMedia {
+  if_not_gated_logged_out?: PolarisMedia;
+  user?: { full_name?: string; username?: string };
+  caption?: { text?: string };
+  like_count?: number;
+  comment_count?: number;
+  carousel_media?: InstagramMediaItem[];
+  video_url?: string;
+  video_versions?: Array<{ url: string }>;
+  display_uri?: string;
+  image_versions2?: { candidates?: InstagramCandidate[] };
+}
+
+interface InstagramShortcodeNode {
+  is_video?: boolean;
+  video_url?: string;
+  display_url?: string;
+}
+
+interface InstagramShortcodeMedia {
+  edge_media_to_caption?: { edges?: Array<{ node?: { text?: string } }> };
+  caption?: string;
+  owner?: { full_name?: string; username?: string };
+  edge_media_preview_like?: { count?: number };
+  edge_liked_by?: { count?: number };
+  like_count?: number;
+  edge_media_to_comment?: { count?: number };
+  comment_count?: number;
+  edge_sidecar_to_children?: { edges?: Array<{ node: InstagramShortcodeNode }> };
+  is_video?: boolean;
+  video_url?: string;
+  display_url?: string;
+}
+
+function findObjectWithKey(obj: unknown, targetKey: string, depth = 0): unknown {
   if (!obj || typeof obj !== 'object' || depth > 12) return null;
-  if (Object.prototype.hasOwnProperty.call(obj, targetKey)) {
-    return obj[targetKey];
+  const record = obj as Record<string, unknown>;
+  if (Object.prototype.hasOwnProperty.call(record, targetKey)) {
+    return record[targetKey];
   }
-  for (const key of Object.keys(obj)) {
-    const val = obj[key];
+  for (const key of Object.keys(record)) {
+    const val = record[key];
     if (val && typeof val === 'object') {
       const res = findObjectWithKey(val, targetKey, depth + 1);
       if (res) return res;
@@ -23,12 +72,11 @@ function findObjectWithKey(obj: any, targetKey: string, depth = 0): any {
 }
 
 /**
- * Decode JWT payload without external libraries (atob).
- * From DeltaBox/PagerApi.
+ * Decode JWT payload without external libraries.
  */
 function decodeJwtPayload(
   tokenUrl: string
-): { url?: string; filename?: string; [key: string]: any } | null {
+): { url?: string; filename?: string; [key: string]: unknown } | null {
   try {
     const urlObj = new URL(tokenUrl);
     const token = urlObj.searchParams.get('token');
@@ -37,7 +85,7 @@ function decodeJwtPayload(
     if (parts.length < 2) return null;
     let b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
     while (b64.length % 4 !== 0) b64 += '=';
-    return JSON.parse(atob(b64));
+    return JSON.parse(atob(b64)) as { url?: string; filename?: string; [key: string]: unknown };
   } catch {
     return null;
   }
@@ -147,8 +195,8 @@ async function extractViaSSR(shortcode: string): Promise<ExtractedResult | null>
       if (!content.includes('xig_polaris_media')) continue;
 
       try {
-        const json = JSON.parse(content);
-        const polarisMedia = findObjectWithKey(json, 'xig_polaris_media');
+        const json = JSON.parse(content) as unknown;
+        const polarisMedia = findObjectWithKey(json, 'xig_polaris_media') as PolarisMedia | null;
         if (!polarisMedia) continue;
 
         const media = polarisMedia.if_not_gated_logged_out || polarisMedia;
@@ -168,8 +216,8 @@ async function extractViaSSR(shortcode: string): Promise<ExtractedResult | null>
 
         if (Array.isArray(media.carousel_media) && media.carousel_media.length > 0) {
           for (const item of media.carousel_media) {
-            if (item.video_url || item.video_versions?.length) {
-              const videoUrl = item.video_url || item.video_versions[0].url;
+            const videoUrl = item.video_url || item.video_versions?.[0]?.url;
+            if (videoUrl) {
               items.push({
                 type: 'video',
                 url: videoUrl,
@@ -185,12 +233,15 @@ async function extractViaSSR(shortcode: string): Promise<ExtractedResult | null>
               }
             }
           }
-        } else if (media.video_url || media.video_versions?.length) {
-          items.push({
-            type: 'video',
-            url: media.video_url || media.video_versions[0].url,
-            thumbnailUrl: media.display_uri || media.image_versions2?.candidates?.[0]?.url,
-          });
+        } else if (media.video_url || media.video_versions?.[0]?.url) {
+          const videoUrl = media.video_url || media.video_versions?.[0]?.url;
+          if (videoUrl) {
+            items.push({
+              type: 'video',
+              url: videoUrl,
+              thumbnailUrl: media.display_uri || media.image_versions2?.candidates?.[0]?.url,
+            });
+          }
         } else {
           const imgUrl = media.image_versions2?.candidates?.[0]?.url || media.display_uri;
           if (imgUrl) {
@@ -251,7 +302,7 @@ async function extractViaSnapSave(
     );
     if (!match) return null;
 
-    const [_, h, u, n, t, e, r] = match;
+    const [, h, u, n, t, e, r] = match;
     const decodedHtml = decodeSnapSave(
       h,
       parseInt(u, 10),
@@ -471,7 +522,12 @@ async function extractViaGQL(shortcode: string): Promise<ExtractedResult | null>
     });
 
     if (!res.ok) return null;
-    const json = (await res.json()) as any;
+    const json = await res.json<{
+      data?: {
+        xdt_shortcode_media?: InstagramShortcodeMedia;
+        shortcode_media?: InstagramShortcodeMedia;
+      };
+    }>();
     const media = json?.data?.xdt_shortcode_media || json?.data?.shortcode_media;
     if (!media) return null;
 
@@ -501,8 +557,10 @@ async function extractViaEmbed(shortcode: string): Promise<ExtractedResult | nul
     const displayMatch = html.match(/"display_url":"([^"]+)"/);
 
     if (videoMatch?.[1]) {
-      const videoUrl = JSON.parse(`"${videoMatch[1]}"`);
-      const thumbnailUrl = displayMatch?.[1] ? JSON.parse(`"${displayMatch[1]}"`) : undefined;
+      const videoUrl = JSON.parse(`"${videoMatch[1]}"`) as string;
+      const thumbnailUrl = displayMatch?.[1]
+        ? (JSON.parse(`"${displayMatch[1]}"`) as string)
+        : undefined;
 
       return {
         platform: 'instagram',
@@ -518,7 +576,7 @@ async function extractViaEmbed(shortcode: string): Promise<ExtractedResult | nul
     }
 
     if (displayMatch?.[1]) {
-      const displayUrl = JSON.parse(`"${displayMatch[1]}"`);
+      const displayUrl = JSON.parse(`"${displayMatch[1]}"`) as string;
       return {
         platform: 'instagram',
         id: shortcode,
@@ -537,7 +595,7 @@ async function extractViaEmbed(shortcode: string): Promise<ExtractedResult | nul
   }
 }
 
-function parseShortcodeMedia(shortcode: string, media: any): ExtractedResult {
+function parseShortcodeMedia(shortcode: string, media: InstagramShortcodeMedia): ExtractedResult {
   const items: ExtractedMediaItem[] = [];
   const caption = media.edge_media_to_caption?.edges?.[0]?.node?.text || media.caption || '';
 
@@ -555,7 +613,7 @@ function parseShortcodeMedia(shortcode: string, media: any): ExtractedResult {
     (typeof media.comment_count === 'number' ? media.comment_count : undefined);
   const stats = likes !== undefined || comments !== undefined ? { likes, comments } : undefined;
 
-  if (media.edge_sidecar_to_children?.edges?.length > 0) {
+  if (media.edge_sidecar_to_children?.edges && media.edge_sidecar_to_children.edges.length > 0) {
     for (const edge of media.edge_sidecar_to_children.edges) {
       const node = edge.node;
       if (node.is_video && node.video_url) {
@@ -610,13 +668,11 @@ export async function extractInstagram(inputUrl: string): Promise<ExtractedResul
 
   let result: ExtractedResult | null = null;
 
-  // 1. Googlebot SSR (Direct full resolution carousel, video, photo)
   const ssrResult = await extractViaSSR(shortcode);
   if (ssrResult && ssrResult.items.length > 0) {
     result = ssrResult;
   }
 
-  // 2. SnapSave Engine (Zero-eval decoder from DeltaBox/PagerApi)
   if (!result) {
     const snapResult = await extractViaSnapSave(url, shortcode);
     if (snapResult && snapResult.items.length > 0) {
@@ -624,7 +680,6 @@ export async function extractInstagram(inputUrl: string): Promise<ExtractedResul
     }
   }
 
-  // 3. OpenGraph Crawler Meta (Facebook crawler fallback)
   if (!result) {
     const ogResult = await extractViaOG(shortcode);
     if (ogResult && ogResult.items.length > 0) {
@@ -632,7 +687,6 @@ export async function extractInstagram(inputUrl: string): Promise<ExtractedResul
     }
   }
 
-  // 4. Guest GQL API
   if (!result) {
     const gqlResult = await extractViaGQL(shortcode);
     if (gqlResult && gqlResult.items.length > 0) {
@@ -640,7 +694,6 @@ export async function extractInstagram(inputUrl: string): Promise<ExtractedResul
     }
   }
 
-  // 5. Embed Scraper
   if (!result) {
     const embedResult = await extractViaEmbed(shortcode);
     if (embedResult && embedResult.items.length > 0) {
