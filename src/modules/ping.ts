@@ -12,22 +12,14 @@ export class PingModule extends BaseModule {
       ['ping', 'p'],
       async (ctx: CommandContext) => {
         const start = performance.now();
-        const sent = (await ctx.respond(html`<b>Pinging...</b>`)) as
-          { message_id?: number } | undefined;
+        await ctx.api.getMe().catch(() => {});
         const latency = Math.round(performance.now() - start);
 
-        if (sent?.message_id && ctx.chat?.id) {
-          try {
-            await ctx.api.editMessageText(
-              ctx.chat.id,
-              sent.message_id,
-              html`<b>Pong!</b> <code>${latency}ms</code>`,
-              { parse_mode: 'HTML' }
-            );
-          } catch {
-            // Safe fallback if edit is not permitted
-          }
-        }
+        await ctx.respond(
+          html`<b>Pong!</b> <code>${latency}ms</code>
+
+            <blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>`
+        );
       },
       {
         description: 'Check bot latency and roundtrip',
