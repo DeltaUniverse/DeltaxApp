@@ -1,10 +1,9 @@
 import { InlineKeyboard } from 'grammy';
-import { BaseModule, PrefixService, type CommandContext } from '../core';
+import { BaseModule, type CommandContext } from '../core';
 import { html, rawHtml, escapeHtml, stripHtml, unescapeHtml } from '../html';
 import type { BotContext } from '../types';
 import {
   formatCount,
-  escapeRegex,
   getChatId,
   buildGuestMediaContainer,
   chunkMediaItems,
@@ -15,52 +14,6 @@ import {
   extractDownloadTarget,
   type ExtractedResult,
 } from '../utils';
-
-/**
- * Checks if a message attempts an un-prefixed download command (e.g. "@deltaxapp dl ...", "dl ...")
- */
-export function isUnprefixedDownloadCommand(text: string, activePrefix: string = '/'): boolean {
-  if (!text) return false;
-  const trimmed = text.trim();
-
-  const escP = escapeRegex(activePrefix || '/');
-  if (new RegExp(`^${escP}(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i').test(trimmed)) {
-    return false;
-  }
-  if (new RegExp(`^@\\w+\\s+${escP}(?:dl|download)(?:\\s+|$|[?#])`, 'i').test(trimmed)) {
-    return false;
-  }
-
-  if (/^@\w+\s+(?:dl|download)(?:\s+|$|[?#])/i.test(trimmed)) return true;
-  if (/^(?:dl|download)(?:\s+|$|[?#])/i.test(trimmed)) return true;
-  if (
-    activePrefix !== '/' &&
-    (new RegExp(`^/(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i').test(trimmed) ||
-      new RegExp(`^@\\w+\\s+/(?:dl|download)(?:\\s+|$|[?#])`, 'i').test(trimmed))
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-export function isDownloadRequest(
-  text: string,
-  botUsername?: string,
-  activePrefix: string = '/'
-): boolean {
-  if (!text) return false;
-  const trimmed = text.trim();
-  const escP = escapeRegex(activePrefix || '/');
-
-  const directRegex = new RegExp(`^${escP}(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
-  if (directRegex.test(trimmed)) return true;
-
-  const mentionRegex = new RegExp(`^@\\w+\\s+${escP}(?:dl|download)(?:\\s+|$|[?#])`, 'i');
-  if (mentionRegex.test(trimmed)) return true;
-
-  return false;
-}
 
 export class DownloaderModule extends BaseModule {
   readonly id = 'downloader';
@@ -108,18 +61,8 @@ export class DownloaderModule extends BaseModule {
     });
 
     this.on('guest_message:text', async (ctx: BotContext) => {
-      const text = ctx.msg?.text || '';
-      const replyMsg = ctx.msg?.reply_to_message;
-
-      // Skip auto-download when mentioned in a reply thread.
-      if (replyMsg) return;
-
-      const guestPrefix = await PrefixService.getGuestPrefix(ctx.env);
-      if (isUnprefixedDownloadCommand(text, guestPrefix)) return;
-
-      const detected = findSupportedUrl(text);
-      if (detected) {
-        await this.handleDownload(ctx, detected.url, detected.platform);
+      if (ctx.guest?.kind === 'url') {
+        await this.handleDownload(ctx, ctx.guest.url, ctx.guest.platform);
       }
     });
   }

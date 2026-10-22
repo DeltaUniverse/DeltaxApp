@@ -10,6 +10,9 @@ import { FormattedString } from '@grammyjs/parse-mode';
 import { ModuleManager, type ModuleConstructor } from './module_manager';
 import { CommandDispatcher } from './command_dispatcher';
 import { DatabaseService } from './database';
+import { PrefixService } from './prefix_service';
+import { classifyGuestMessage } from './guest_router';
+import { isGuestMode } from '../utils/telegram';
 import type { BaseModule } from './base_module';
 import type { BotContext, Env } from '../types';
 import { ROUTES, BOT_CONFIG, HTTP_HEADERS } from '../config';
@@ -113,6 +116,16 @@ export class TelegramBotServer {
         return originalReply(textOrFmt as string, other);
       };
 
+      return next();
+    });
+
+    // Guest message classifier middleware: classifies guest message intent into ctx.guest
+    this._bot.use(async (ctx, next) => {
+      if (isGuestMode(ctx)) {
+        const guestPrefix = await PrefixService.getGuestPrefix(ctx.env);
+        const commandNames = this._commandDispatcher.getRegisteredCommandNames();
+        classifyGuestMessage(ctx, commandNames, guestPrefix);
+      }
       return next();
     });
 

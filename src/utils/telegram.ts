@@ -5,6 +5,7 @@
  */
 
 import { escapeHtml } from '../html';
+import type { GuestClassification } from '../core/guest_router';
 
 export interface UserLike {
   id?: number | string;
@@ -39,6 +40,7 @@ export interface ContextLike {
   msg?: MessageLike;
   message?: MessageLike;
   update?: { guest_message?: unknown };
+  guest?: GuestClassification;
 }
 
 /**

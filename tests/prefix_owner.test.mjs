@@ -5,71 +5,102 @@ function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function isScreenshotRequest(text, botUsername, activePrefix = '/') {
-  if (!text) return false;
-  const trimmed = text.trim();
-  const escP = escapeRegex(activePrefix || '/');
+const INSTAGRAM_URL_REGEX = /https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel|tv)\/([a-zA-Z0-9_-]+)/i;
+const INSTAGRAM_SHARE_REGEX =
+  /https?:\/\/(?:www\.)?instagram\.com\/share\/(?:reel|p)\/([a-zA-Z0-9_-]+)/i;
+const TIKTOK_URL_REGEX =
+  /https?:\/\/(?:www\.|m\.)?tiktok\.com\/@[a-zA-Z0-9_.-]+\/(?:video|photo)\/(\d+)/i;
+const TIKTOK_VM_REGEX = /https?:\/\/(?:vm|vt)\.tiktok\.com\/([a-zA-Z0-9]+)/i;
+const TWITTER_URL_REGEX =
+  /https?:\/\/(?:(?:www\.|mobile\.)?(?:twitter\.com|x\.com)|(?:fxtwitter\.com|vxtwitter\.com|fixupx\.com))\/(?:#!\/)?(\w+)\/status(?:es)?\/(\d+)/i;
+const TCO_URL_REGEX = /https?:\/\/t\.co\/([a-zA-Z0-9_-]+)/i;
 
-  const directRegex = new RegExp(`^${escP}(?:ss|web)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
-  if (directRegex.test(trimmed)) return true;
-
-  const mentionRegex = new RegExp(`^@\\w+\\s+${escP}(?:ss|web)(?:\\s+|$|[?#])`, 'i');
-  if (mentionRegex.test(trimmed)) return true;
-
-  return false;
+function findSupportedUrl(text) {
+  if (!text) return null;
+  const igMatch = text.match(INSTAGRAM_URL_REGEX) || text.match(INSTAGRAM_SHARE_REGEX);
+  if (igMatch) return { platform: 'instagram', url: igMatch[0] };
+  const ttMatch = text.match(TIKTOK_URL_REGEX) || text.match(TIKTOK_VM_REGEX);
+  if (ttMatch) return { platform: 'tiktok', url: ttMatch[0] };
+  const twMatch = text.match(TWITTER_URL_REGEX) || text.match(TCO_URL_REGEX);
+  if (twMatch) return { platform: 'twitter', url: twMatch[0] };
+  return null;
 }
 
-function isSetPrefixRequest(text, botUsername, activePrefix = '/') {
-  if (!text) return false;
-  const trimmed = text.trim();
-  const escP = escapeRegex(activePrefix || '/');
-
-  const directRegex = new RegExp(`^${escP}setprefix(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
-  if (directRegex.test(trimmed)) return true;
-
-  const mentionRegex = new RegExp(`^@\\w+\\s+${escP}setprefix(?:\\s+|$|[?#])`, 'i');
-  if (mentionRegex.test(trimmed)) return true;
-
-  return false;
+function buildCommandRegex(prefix, names) {
+  const escPrefix = escapeRegex(prefix);
+  const sorted = names.slice().sort((a, b) => b.length - a.length);
+  const namePattern = sorted.length > 0 ? sorted.map(escapeRegex).join('|') : '$^';
+  return new RegExp(
+    `^(?:@\\w+\\s+)?${escPrefix}(${namePattern})(?:@\\w+)?(?:\\s+([\\s\\S]*)|$)`,
+    'i'
+  );
 }
 
-function isUnprefixedDownloadCommand(text, activePrefix = '/') {
-  if (!text) return false;
-  const trimmed = text.trim();
-  const escP = escapeRegex(activePrefix || '/');
+function classifyGuestMessage(ctx, registeredCommandNames, activePrefix = '/') {
+  const msg = ctx.msg;
+  const rawText = msg?.text || ctx.message?.text || '';
+  const text = rawText.trim();
+  const replyMsg = msg?.reply_to_message;
 
-  if (new RegExp(`^${escP}(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i').test(trimmed)) {
-    return false;
-  }
-  if (new RegExp(`^@\\w+\\s+${escP}(?:dl|download)(?:\\s+|$|[?#])`, 'i').test(trimmed)) {
-    return false;
-  }
-
-  if (/^@\w+\s+(?:dl|download)(?:\s+|$|[?#])/i.test(trimmed)) return true;
-  if (/^(?:dl|download)(?:\s+|$|[?#])/i.test(trimmed)) return true;
-  if (
-    activePrefix !== '/' &&
-    (new RegExp(`^/(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i').test(trimmed) ||
-      new RegExp(`^@\\w+\\s+/(?:dl|download)(?:\\s+|$|[?#])`, 'i').test(trimmed))
-  ) {
-    return true;
+  if (text && registeredCommandNames.length > 0) {
+    const cmdMatch = text.match(buildCommandRegex(activePrefix, registeredCommandNames));
+    if (cmdMatch) {
+      const result = {
+        kind: 'command',
+        name: cmdMatch[1].toLowerCase(),
+        args: (cmdMatch[2] || '').trim(),
+      };
+      ctx.guest = result;
+      return result;
+    }
   }
 
-  return false;
-}
+  if (replyMsg) {
+    const result = { kind: 'reply' };
+    ctx.guest = result;
+    return result;
+  }
 
-function isDownloadRequest(text, botUsername, activePrefix = '/') {
-  if (!text) return false;
-  const trimmed = text.trim();
-  const escP = escapeRegex(activePrefix || '/');
+  if (text && registeredCommandNames.length > 0) {
+    const unprefixedMatch = text.match(buildCommandRegex('', registeredCommandNames));
+    if (unprefixedMatch) {
+      const result = {
+        kind: 'wrong-prefix',
+        name: unprefixedMatch[1].toLowerCase(),
+      };
+      ctx.guest = result;
+      return result;
+    }
 
-  const directRegex = new RegExp(`^${escP}(?:dl|download)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
-  if (directRegex.test(trimmed)) return true;
+    if (activePrefix !== '/') {
+      const slashMatch = text.match(buildCommandRegex('/', registeredCommandNames));
+      if (slashMatch) {
+        const result = {
+          kind: 'wrong-prefix',
+          name: slashMatch[1].toLowerCase(),
+        };
+        ctx.guest = result;
+        return result;
+      }
+    }
+  }
 
-  const mentionRegex = new RegExp(`^@\\w+\\s+${escP}(?:dl|download)(?:\\s+|$|[?#])`, 'i');
-  if (mentionRegex.test(trimmed)) return true;
+  if (text) {
+    const detected = findSupportedUrl(text);
+    if (detected) {
+      const result = {
+        kind: 'url',
+        url: detected.url,
+        platform: detected.platform,
+      };
+      ctx.guest = result;
+      return result;
+    }
+  }
 
-  return false;
+  const result = { kind: 'none' };
+  ctx.guest = result;
+  return result;
 }
 
 const DEFAULT_OWNER_ID = 7492470603;
@@ -82,42 +113,221 @@ function isOwner(ctx) {
 }
 
 describe('Deltax App - Strict Prefix Enforcement & Owner Authorization', () => {
-  test('rejects commands without prefix', () => {
-    assert.equal(isScreenshotRequest('@deltaxapp ss google.com', 'deltaxapp', '/'), false);
-    assert.equal(isScreenshotRequest('@deltaxapp ss https://google.com', 'deltaxapp', '/'), false);
-    assert.equal(isScreenshotRequest('ss google.com', 'deltaxapp', '/'), false);
-    assert.equal(isScreenshotRequest('ss', 'deltaxapp', '/'), false);
-    assert.equal(isScreenshotRequest('web google.com', 'deltaxapp', '/'), false);
+  test('classifyGuestMessage: reply mention without command is classified as reply', () => {
+    const commands = ['dl', 'download', 'ss', 'web', 'setprefix', 'start'];
+    const replyMsg = { message_id: 123, text: 'Check https://instagram.com/p/abc/' };
+
+    // With prefix "!"
+    const replyCtxExclamation = {
+      msg: { text: '@deltaxapp', reply_to_message: replyMsg },
+    };
+    assert.deepEqual(classifyGuestMessage(replyCtxExclamation, commands, '!'), { kind: 'reply' });
+    assert.deepEqual(replyCtxExclamation.guest, { kind: 'reply' });
+
+    // With prefix "/"
+    const replyCtxSlash = {
+      msg: { text: '@deltaxapp', reply_to_message: replyMsg },
+    };
+    assert.deepEqual(classifyGuestMessage(replyCtxSlash, commands, '/'), { kind: 'reply' });
+    assert.deepEqual(replyCtxSlash.guest, { kind: 'reply' });
+
+    // Reply mention with explicit command is classified as command, NOT reply
+    const replyCommandExclamation = {
+      msg: { text: '@deltaxapp !dl', reply_to_message: replyMsg },
+    };
+    assert.deepEqual(classifyGuestMessage(replyCommandExclamation, commands, '!'), {
+      kind: 'command',
+      name: 'dl',
+      args: '',
+    });
+
+    const replyCommandSlash = {
+      msg: { text: '@deltaxapp /dl', reply_to_message: replyMsg },
+    };
+    assert.deepEqual(classifyGuestMessage(replyCommandSlash, commands, '/'), {
+      kind: 'command',
+      name: 'dl',
+      args: '',
+    });
   });
 
-  test('accepts commands with default / prefix', () => {
-    assert.equal(isScreenshotRequest('/ss google.com', 'deltaxapp', '/'), true);
-    assert.equal(isScreenshotRequest('/web google.com', 'deltaxapp', '/'), true);
-    assert.equal(isScreenshotRequest('/ss', 'deltaxapp', '/'), true);
-    assert.equal(isScreenshotRequest('/ss@deltaxapp google.com', 'deltaxapp', '/'), true);
-    assert.equal(isScreenshotRequest('@deltaxapp /ss google.com', 'deltaxapp', '/'), true);
+  test('classifyGuestMessage: valid command "@bot !dl <url>" and "@bot /dl <url>"', () => {
+    const commands = ['dl', 'download', 'ss', 'web', 'setprefix', 'start'];
+    const url = 'https://www.instagram.com/p/123/';
+
+    // Prefix "!"
+    const ctxExclamation = { msg: { text: `@deltaxapp !dl ${url}` } };
+    assert.deepEqual(classifyGuestMessage(ctxExclamation, commands, '!'), {
+      kind: 'command',
+      name: 'dl',
+      args: url,
+    });
+    assert.deepEqual(ctxExclamation.guest, {
+      kind: 'command',
+      name: 'dl',
+      args: url,
+    });
+
+    // Direct without mention
+    const directExclamation = { msg: { text: `!dl ${url}` } };
+    assert.deepEqual(classifyGuestMessage(directExclamation, commands, '!'), {
+      kind: 'command',
+      name: 'dl',
+      args: url,
+    });
+
+    // Prefix "/"
+    const ctxSlash = { msg: { text: `@deltaxapp /dl ${url}` } };
+    assert.deepEqual(classifyGuestMessage(ctxSlash, commands, '/'), {
+      kind: 'command',
+      name: 'dl',
+      args: url,
+    });
+    assert.deepEqual(ctxSlash.guest, {
+      kind: 'command',
+      name: 'dl',
+      args: url,
+    });
+
+    const directSlash = { msg: { text: `/dl ${url}` } };
+    assert.deepEqual(classifyGuestMessage(directSlash, commands, '/'), {
+      kind: 'command',
+      name: 'dl',
+      args: url,
+    });
   });
 
-  test('accepts commands with custom ! prefix and rejects un-prefixed commands', () => {
-    assert.equal(isScreenshotRequest('!ss google.com', 'deltaxapp', '!'), true);
-    assert.equal(isScreenshotRequest('!web google.com', 'deltaxapp', '!'), true);
-    assert.equal(isScreenshotRequest('@deltaxapp !ss google.com', 'deltaxapp', '!'), true);
-    // When prefix is '!', '/' MUST NOT be parsed as screenshot command
-    assert.equal(isScreenshotRequest('/ss google.com', 'deltaxapp', '!'), false);
-    assert.equal(isScreenshotRequest('/web google.com', 'deltaxapp', '!'), false);
-    assert.equal(isScreenshotRequest('@deltaxapp /ss google.com', 'deltaxapp', '!'), false);
-    assert.equal(isScreenshotRequest('@deltaxapp ss google.com', 'deltaxapp', '!'), false);
-    assert.equal(isScreenshotRequest('ss google.com', 'deltaxapp', '!'), false);
+  test('classifyGuestMessage: wrong-prefix "@bot dl <url>" with prefix "!" and "/"', () => {
+    const commands = ['dl', 'download', 'ss', 'web', 'setprefix', 'start'];
+    const url = 'https://www.instagram.com/p/123/';
+
+    // Prefix "!" with unprefixed command
+    const ctxExclamation = { msg: { text: `@deltaxapp dl ${url}` } };
+    assert.deepEqual(classifyGuestMessage(ctxExclamation, commands, '!'), {
+      kind: 'wrong-prefix',
+      name: 'dl',
+    });
+
+    const directExclamation = { msg: { text: `dl ${url}` } };
+    assert.deepEqual(classifyGuestMessage(directExclamation, commands, '!'), {
+      kind: 'wrong-prefix',
+      name: 'dl',
+    });
+
+    // Prefix "!" with slash command
+    const ctxSlashWhenExclamation = { msg: { text: `@deltaxapp /dl ${url}` } };
+    assert.deepEqual(classifyGuestMessage(ctxSlashWhenExclamation, commands, '!'), {
+      kind: 'wrong-prefix',
+      name: 'dl',
+    });
+
+    const directSlashWhenExclamation = { msg: { text: `/dl ${url}` } };
+    assert.deepEqual(classifyGuestMessage(directSlashWhenExclamation, commands, '!'), {
+      kind: 'wrong-prefix',
+      name: 'dl',
+    });
+
+    // Prefix "/" with unprefixed command
+    const ctxSlash = { msg: { text: `@deltaxapp dl ${url}` } };
+    assert.deepEqual(classifyGuestMessage(ctxSlash, commands, '/'), {
+      kind: 'wrong-prefix',
+      name: 'dl',
+    });
+
+    const directSlash = { msg: { text: `dl ${url}` } };
+    assert.deepEqual(classifyGuestMessage(directSlash, commands, '/'), {
+      kind: 'wrong-prefix',
+      name: 'dl',
+    });
   });
 
-  test('identifies setprefix command requests', () => {
-    assert.equal(isSetPrefixRequest('/setprefix !', 'deltaxapp', '/'), true);
-    assert.equal(isSetPrefixRequest('@deltaxapp /setprefix !', 'deltaxapp', '/'), true);
-    assert.equal(isSetPrefixRequest('!setprefix ?', 'deltaxapp', '!'), true);
-    assert.equal(isSetPrefixRequest('@deltaxapp !setprefix ?', 'deltaxapp', '!'), true);
-    // When prefix is '!', '/setprefix' MUST NOT be parsed
-    assert.equal(isSetPrefixRequest('/setprefix !', 'deltaxapp', '!'), false);
-    assert.equal(isSetPrefixRequest('setprefix !', 'deltaxapp', '/'), false);
+  test('classifyGuestMessage: bare URL is classified as url', () => {
+    const commands = ['dl', 'download', 'ss', 'web', 'setprefix', 'start'];
+    const url = 'https://www.instagram.com/p/123';
+
+    // Prefix "!"
+    const ctxExclamation = { msg: { text: url } };
+    assert.deepEqual(classifyGuestMessage(ctxExclamation, commands, '!'), {
+      kind: 'url',
+      url,
+      platform: 'instagram',
+    });
+
+    const mentionUrlExclamation = { msg: { text: `@deltaxapp ${url}` } };
+    assert.deepEqual(classifyGuestMessage(mentionUrlExclamation, commands, '!'), {
+      kind: 'url',
+      url,
+      platform: 'instagram',
+    });
+
+    // Prefix "/"
+    const ctxSlash = { msg: { text: url } };
+    assert.deepEqual(classifyGuestMessage(ctxSlash, commands, '/'), {
+      kind: 'url',
+      url,
+      platform: 'instagram',
+    });
+
+    const mentionUrlSlash = { msg: { text: `@deltaxapp ${url}` } };
+    assert.deepEqual(classifyGuestMessage(mentionUrlSlash, commands, '/'), {
+      kind: 'url',
+      url,
+      platform: 'instagram',
+    });
+  });
+
+  test('classifyGuestMessage: "@bot !ss <url>" and "@bot !setprefix" handled with prefixes "/" and "!"', () => {
+    const commands = ['dl', 'download', 'ss', 'web', 'setprefix', 'start'];
+
+    // Prefix "!"
+    const ssExclamation = { msg: { text: '@deltaxapp !ss https://google.com' } };
+    assert.deepEqual(classifyGuestMessage(ssExclamation, commands, '!'), {
+      kind: 'command',
+      name: 'ss',
+      args: 'https://google.com',
+    });
+
+    const setprefixExclamation = { msg: { text: '@deltaxapp !setprefix ?' } };
+    assert.deepEqual(classifyGuestMessage(setprefixExclamation, commands, '!'), {
+      kind: 'command',
+      name: 'setprefix',
+      args: '?',
+    });
+
+    // Prefix "!" wrong prefix cases
+    const ssWrongExclamation = { msg: { text: '@deltaxapp ss https://google.com' } };
+    assert.deepEqual(classifyGuestMessage(ssWrongExclamation, commands, '!'), {
+      kind: 'wrong-prefix',
+      name: 'ss',
+    });
+
+    const ssSlashWrongExclamation = { msg: { text: '@deltaxapp /ss https://google.com' } };
+    assert.deepEqual(classifyGuestMessage(ssSlashWrongExclamation, commands, '!'), {
+      kind: 'wrong-prefix',
+      name: 'ss',
+    });
+
+    // Prefix "/"
+    const ssSlash = { msg: { text: '@deltaxapp /ss https://google.com' } };
+    assert.deepEqual(classifyGuestMessage(ssSlash, commands, '/'), {
+      kind: 'command',
+      name: 'ss',
+      args: 'https://google.com',
+    });
+
+    const setprefixSlash = { msg: { text: '@deltaxapp /setprefix !' } };
+    assert.deepEqual(classifyGuestMessage(setprefixSlash, commands, '/'), {
+      kind: 'command',
+      name: 'setprefix',
+      args: '!',
+    });
+
+    // Prefix "/" wrong prefix case
+    const ssWrongSlash = { msg: { text: '@deltaxapp ss https://google.com' } };
+    assert.deepEqual(classifyGuestMessage(ssWrongSlash, commands, '/'), {
+      kind: 'wrong-prefix',
+      name: 'ss',
+    });
   });
 
   test('authorizes owner ID 7492470603 and rejects non-owners', () => {
@@ -156,119 +366,6 @@ describe('Deltax App - Strict Prefix Enforcement & Owner Authorization', () => {
       env: { OWNER_ID: '999888777' },
     };
     assert.equal(isOwner(oldOwnerCtx), false);
-  });
-
-  test('downloader strictly requires prefix and rejects un-prefixed dl command in guest mode', () => {
-    // With custom prefix !
-    const customPrefix = '!';
-    assert.equal(
-      isUnprefixedDownloadCommand('@deltaxapp dl https://www.instagram.com/p/123/', customPrefix),
-      true
-    );
-    assert.equal(
-      isDownloadRequest(
-        '@deltaxapp dl https://www.instagram.com/p/123/',
-        'deltaxapp',
-        customPrefix
-      ),
-      false
-    );
-    assert.equal(
-      isUnprefixedDownloadCommand('@deltaxapp /dl https://www.instagram.com/p/123/', customPrefix),
-      true
-    );
-    assert.equal(
-      isDownloadRequest(
-        '@deltaxapp /dl https://www.instagram.com/p/123/',
-        'deltaxapp',
-        customPrefix
-      ),
-      false
-    );
-    assert.equal(
-      isUnprefixedDownloadCommand('dl https://www.instagram.com/p/123/', customPrefix),
-      true
-    );
-    assert.equal(
-      isDownloadRequest('dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix),
-      false
-    );
-    assert.equal(
-      isUnprefixedDownloadCommand('/dl https://www.instagram.com/p/123/', customPrefix),
-      true
-    );
-    assert.equal(
-      isDownloadRequest('/dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix),
-      false
-    );
-
-    // Valid prefixed commands
-    assert.equal(
-      isUnprefixedDownloadCommand('@deltaxapp !dl https://www.instagram.com/p/123/', customPrefix),
-      false
-    );
-    assert.equal(
-      isDownloadRequest(
-        '@deltaxapp !dl https://www.instagram.com/p/123/',
-        'deltaxapp',
-        customPrefix
-      ),
-      true
-    );
-    assert.equal(
-      isUnprefixedDownloadCommand('!dl https://www.instagram.com/p/123/', customPrefix),
-      false
-    );
-    assert.equal(
-      isDownloadRequest('!dl https://www.instagram.com/p/123/', 'deltaxapp', customPrefix),
-      true
-    );
-
-    // Default prefix /
-    assert.equal(
-      isUnprefixedDownloadCommand('@deltaxapp dl https://www.instagram.com/p/123/', '/'),
-      true
-    );
-    assert.equal(
-      isDownloadRequest('@deltaxapp dl https://www.instagram.com/p/123/', 'deltaxapp', '/'),
-      false
-    );
-    assert.equal(
-      isUnprefixedDownloadCommand('@deltaxapp /dl https://www.instagram.com/p/123/', '/'),
-      false
-    );
-    assert.equal(
-      isDownloadRequest('@deltaxapp /dl https://www.instagram.com/p/123/', 'deltaxapp', '/'),
-      true
-    );
-  });
-
-  test('strict filter: skips when mentioned by reply without explicit command', () => {
-    const customPrefix = '!';
-    const replyMsg = { message_id: 123, text: 'Check https://instagram.com/p/abc/' };
-
-    // Mentioned by reply with NO command
-    const mentionOnlyText = '@deltaxapp';
-    const isDlReq = isDownloadRequest(mentionOnlyText, 'deltaxapp', customPrefix);
-    const isSsReq = isScreenshotRequest(mentionOnlyText, 'deltaxapp', customPrefix);
-
-    assert.equal(isDlReq, false);
-    assert.equal(isSsReq, false);
-
-    // Rule: if replyMsg is present and neither dl nor ss request, it MUST be skipped
-    const shouldSkipGuestDownload = Boolean(replyMsg && !isDlReq);
-    const shouldSkipGuestScreenshot = Boolean(replyMsg && !isSsReq);
-    const shouldSkipGuestStart = Boolean(replyMsg);
-
-    assert.equal(shouldSkipGuestDownload, true);
-    assert.equal(shouldSkipGuestScreenshot, true);
-    assert.equal(shouldSkipGuestStart, true);
-
-    // Mentioned by reply WITH explicit command "!dl"
-    const commandText = '@deltaxapp !dl';
-    const isCommandDlReq = isDownloadRequest(commandText, 'deltaxapp', customPrefix);
-    assert.equal(isCommandDlReq, true);
-    assert.equal(Boolean(replyMsg && !isCommandDlReq), false); // Does not skip!
   });
 
   test('parses command arguments uniformly regardless of bot mention position', () => {

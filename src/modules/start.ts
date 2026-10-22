@@ -1,9 +1,7 @@
 import { InlineKeyboard } from 'grammy';
-import { BaseModule, PrefixService, type CommandContext } from '../core';
-import { isScreenshotRequest, isSetPrefixRequest } from './web';
-import { isUnprefixedDownloadCommand } from './downloader';
+import { BaseModule, type CommandContext } from '../core';
 import type { BotContext } from '../types';
-import { getUserMention, getCallerUser, findSupportedUrl } from '../utils';
+import { getUserMention, getCallerUser } from '../utils';
 
 /**
  * StartModule provides the /start greeting and status for Delta,
@@ -46,30 +44,15 @@ export class StartModule extends BaseModule {
     );
 
     this.on('guest_message:text', async (ctx: BotContext) => {
-      const text = ctx.msg?.text || '';
-      const replyMsg = ctx.msg?.reply_to_message;
-
-      // Avoid showing greeting when the bot is referenced inside a reply thread.
-      if (replyMsg) {
+      if (
+        ctx.guest?.kind === 'reply' ||
+        ctx.guest?.kind === 'url' ||
+        ctx.guest?.kind === 'command'
+      ) {
         return;
       }
 
       const botUsername = ctx.me?.username || 'deltaxapp';
-      const guestPrefix = await PrefixService.getGuestPrefix(ctx.env);
-
-      if (!isUnprefixedDownloadCommand(text, guestPrefix)) {
-        if (findSupportedUrl(text)) {
-          return;
-        }
-
-        if (
-          isScreenshotRequest(text, botUsername, guestPrefix) ||
-          isSetPrefixRequest(text, botUsername, guestPrefix)
-        ) {
-          return;
-        }
-      }
-
       const caller = getCallerUser(ctx);
       const callerMention = getUserMention(caller);
       const rawTitleName =

@@ -7,6 +7,7 @@
 import type { Context } from 'grammy';
 import type { BaseModule } from './core/base_module';
 import type { DatabaseService } from './core/database';
+import type { GuestClassification } from './core/guest_router';
 
 export interface Env {
   BOT_TOKEN: string;
@@ -44,4 +45,5 @@ export interface BotContext extends Context {
   modules?: ModuleInfo[];
   executionCtx: ExecutionContext;
   waitUntil: (promise: Promise<unknown>) => void;
+  guest?: GuestClassification;
 }

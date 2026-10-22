@@ -1,50 +1,7 @@
 import { InlineKeyboard, InputFile } from 'grammy';
 import { BaseModule, PrefixService, type CommandContext } from '../core';
 import { escapeHtml } from '../html';
-import { escapeRegex, extractTargetUrl } from '../utils';
-
-/**
- * Checks if a message is intended as a screenshot command.
- */
-export function isScreenshotRequest(
-  text: string,
-  botUsername?: string,
-  activePrefix: string = '/'
-): boolean {
-  if (!text) return false;
-  const trimmed = text.trim();
-  const escP = escapeRegex(activePrefix || '/');
-
-  const directRegex = new RegExp(`^${escP}(?:ss|web)(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
-  if (directRegex.test(trimmed)) return true;
-
-  const mentionRegex = new RegExp(`^@\\w+\\s+${escP}(?:ss|web)(?:\\s+|$|[?#])`, 'i');
-  if (mentionRegex.test(trimmed)) return true;
-
-  return false;
-}
-
-/**
- * Checks if a message is intended as a setprefix command
- * Strictly requires the activePrefix (e.g. "!setprefix" when activePrefix is "!")
- */
-export function isSetPrefixRequest(
-  text: string,
-  botUsername?: string,
-  activePrefix: string = '/'
-): boolean {
-  if (!text) return false;
-  const trimmed = text.trim();
-  const escP = escapeRegex(activePrefix || '/');
-
-  const directRegex = new RegExp(`^${escP}setprefix(?:@\\w+)?(?:\\s+|$|[?#])`, 'i');
-  if (directRegex.test(trimmed)) return true;
-
-  const mentionRegex = new RegExp(`^@\\w+\\s+${escP}setprefix(?:\\s+|$|[?#])`, 'i');
-  if (mentionRegex.test(trimmed)) return true;
-
-  return false;
-}
+import { extractTargetUrl } from '../utils';
 
 /**
  * Fetches screenshot bytes via Linkdr (falling back to Thum.io/Microlink)
@@ -142,7 +99,7 @@ export class WebModule extends BaseModule {
 
         const keyboard = new InlineKeyboard().url('Open Link', targetUrl);
 
-        if (ctx.isGuest) {
+        if (ctx.guest || ctx.isGuest) {
           await ctx
             .answerGuestQuery({
               type: 'photo',

@@ -17,3 +17,4 @@ export {
   hasHtmlTags,
   HTML_TAGS,
 } from './command_dispatcher';
+export { classifyGuestMessage, buildCommandRegex, type GuestClassification } from './guest_router';

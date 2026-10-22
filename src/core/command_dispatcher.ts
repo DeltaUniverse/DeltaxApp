@@ -76,6 +76,10 @@ export class CommandDispatcher {
     }));
   }
 
+  public getRegisteredCommandNames(): string[] {
+    return Array.from(this._commands.keys());
+  }
+
   public async dispatch(ctx: BotContext): Promise<boolean> {
     const rawText = ctx.msg?.text || '';
     if (!rawText.trim()) return false;
