@@ -6,7 +6,7 @@
 
 export const BOT_CONFIG = {
   NAME: 'Deltax App',
-  VERSION: '1.1.0',
+  VERSION: '1.2.0',
   FRAMEWORK: 'grammY (TypeScript OOP)',
   RUNTIME: 'Cloudflare Workers (V8 Isolate)',
   DEFAULT_ENVIRONMENT: 'production',

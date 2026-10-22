@@ -5,9 +5,11 @@
 **Edge-native, modular Telegram Bot architecture built for Cloudflare Workers.**
 
 [![CI](https://github.com/DeltaUniverse/DeltaxApp/actions/workflows/ci.yml/badge.svg)](https://github.com/DeltaUniverse/DeltaxApp/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![CodeQL](https://github.com/DeltaUniverse/DeltaxApp/actions/workflows/codeql.yml/badge.svg)](https://github.com/DeltaUniverse/DeltaxApp/actions/workflows/codeql.yml)
+[![Husky](https://img.shields.io/badge/Husky-active-brightgreen?logo=git)](https://typicode.github.io/husky/)
 [![Runtime](https://img.shields.io/badge/Runtime-Cloudflare_Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 </div>
 
@@ -18,29 +20,27 @@ Deltax App is a serverless runtime architecture for Telegram bots running inside
 ## Architecture
 
 ```
-Incoming Webhook (POST)
+Incoming Webhook
        │
        ▼
- [Hono HTTP Router] ── (Secret Token Auth)
+┌──────────────┐
+│  Hono Router │  Secret token authentication & health probe
+└──────┬───────┘
        │
        ▼
- [GrammY Bot Pipeline]
+┌──────────────┐
+│  Classifier  │  Single-pass intent resolution (command | url | guest)
+└──────┬───────┘
        │
-       ├─► [Context Hydration] (D1, env, executionCtx)
+       ▼
+┌──────────────┐
+│  Dispatcher  │  Deterministic prefix matching & module execution
+└──────┬───────┘
        │
-       ├─► [Guest Intent Classifier] (Single-pass classifyGuestMessage)
-       │         │
-       │         ├── 'reply'        ──► Ignored (in-thread context)
-       │         ├── 'command'      ──► Central CommandDispatcher
-       │         ├── 'wrong-prefix' ──► Fallback handler
-       │         ├── 'url'          ──► Direct media extraction
-       │         └── 'none'         ──► Default onboarding
-       │
-       ├─► [Command Dispatcher] (Strict prefix match & execution)
-       │
-       └─► [Module Composers] (Decoupled BaseModule event listeners)
-                 │
-                 └── ExecutionContext.waitUntil() ──► Non-blocking background tasks
+       ▼
+┌──────────────┐
+│ Async Worker │  Immediate 200 OK + non-blocking ctx.waitUntil()
+└──────────────┘
 ```
 
 ## Design Principles
@@ -80,26 +80,6 @@ export class PingModule extends BaseModule {
     });
   }
 }
-```
-
-## Repository Structure
-
-```
-src/
-├── core/                   # Kernel: bot server, dispatcher, prefix & intent routing
-│   ├── base_module.ts      # Abstract module class with lifecycle hooks
-│   ├── command_dispatcher.ts # Command parser, registry & permission gates
-│   ├── database.ts         # Cloudflare D1 ORM & collection abstraction
-│   ├── guest_router.ts     # Single-pass intent classification & regex builder
-│   ├── module_manager.ts   # Dynamic module loader & Telegram sync
-│   ├── prefix_service.ts   # Persistent D1 prefix cache & resolver
-│   └── telegram_bot.ts     # Serverless bot server & webhook pipeline
-├── modules/                # Plug-and-play module implementations
-├── utils/                  # Pure utility helpers (extractors, telegram, formatters)
-├── config.ts               # Runtime constants & route configuration
-├── html.ts                 # Sanitized template literal tag implementation
-├── index.ts                # Worker fetch entrypoint
-└── types.ts                # Kernel & context type definitions
 ```
 
 ## Quickstart
