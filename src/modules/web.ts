@@ -1,67 +1,52 @@
-import { InlineKeyboard, InputFile } from 'grammy';
+import { InlineKeyboard } from 'grammy';
 import { BaseModule, PrefixService, type CommandContext } from '../core';
 import { escapeHtml } from '../html';
 import { extractTargetUrl } from '../utils';
 
-/**
- * Fetches screenshot bytes via Linkdr (falling back to Thum.io/Microlink)
- */
-async function fetchScreenshot(
-  targetUrl: string,
-  domain: string
-): Promise<{ buffer: ArrayBuffer; url: string; ext: string }> {
-  const providers = [
-    {
-      name: 'Linkdr',
-      url: `https://linkdr.com/api/screenshot/${domain}`,
-    },
-    {
-      name: 'Thum.io',
-      url: `https://image.thum.io/get/width/1280/crop/800/${targetUrl}`,
-    },
-    {
-      name: 'Microlink',
-      url: `https://api.microlink.io?url=${encodeURIComponent(targetUrl)}&screenshot=true&meta=false&embed=screenshot.url`,
-    },
-  ];
-
-  for (const provider of providers) {
-    try {
-      const res = await fetch(provider.url, {
-        redirect: 'follow',
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        },
-      });
-
-      if (res.ok) {
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('image')) {
-          const buffer = await res.arrayBuffer();
-          if (buffer.byteLength > 1000) {
-            const ext = contentType.includes('webp') ? 'webp' : 'png';
-            return { buffer, url: res.url || provider.url, ext };
-          }
-        }
-      }
-    } catch (err) {
-      console.warn(`[WebModule] ${provider.name} failed:`, err);
-    }
-  }
-
-  throw new Error('All screenshot engines failed to render website');
+interface MicrolinkResponse {
+  status?: string;
+  data?: {
+    screenshot?: {
+      url?: string;
+    };
+  };
 }
 
 /**
- * WebModule provides website screenshot capabilities via Linkdr:
+ * Resolves a high-quality direct screenshot image URL via Microlink with Thum.io fallback
+ */
+async function resolveScreenshotUrl(targetUrl: string): Promise<string> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(
+      `https://api.microlink.io?url=${encodeURIComponent(targetUrl)}&screenshot=true&meta=false`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeout);
+    if (res.ok) {
+      const data = await res.json<MicrolinkResponse>();
+      if (data?.status === 'success' && data.data?.screenshot?.url) {
+        return data.data.screenshot.url;
+      }
+    }
+  } catch (err) {
+    console.warn('[WebModule] Microlink API screenshot resolution failed:', err);
+  }
+
+  // Resilient fallback: Thum.io directly renders any public URL without API key
+  return `https://image.thum.io/get/width/1280/crop/800/${targetUrl}`;
+}
+
+/**
+ * WebModule provides website screenshot capabilities:
  * - Supports direct arguments or replying to any message containing a link
  * - Dynamic D1 prefixes (e.g. /ss, !ss, @bot !ss, @bot ss)
  */
 export class WebModule extends BaseModule {
   readonly id = 'web';
   readonly name = 'Web';
-  readonly description = 'Captures and sends website screenshots via Linkdr';
+  readonly description = 'Captures and sends website screenshots';
   readonly version = '1.0.0';
 
   public setup(): void {
@@ -79,23 +64,21 @@ export class WebModule extends BaseModule {
             `• Or reply to any message containing a link with <code>${ctx.prefix}ss</code>\n\n` +
             `<b>Example:</b>\n` +
             `<code>${ctx.prefix}ss google.com</code>` +
-            `</blockquote>\n\n` +
-            `<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>`;
+            `</blockquote>`;
 
           await ctx.respond(usageMsg);
           return;
         }
 
         const { url: targetUrl, domain } = parsed;
-        const screenshotUrl = `https://linkdr.com/api/screenshot/${domain}`;
+        const screenshotUrl = await resolveScreenshotUrl(targetUrl);
 
         const caption =
           `<b>Web Screenshot</b>\n\n` +
           `<blockquote expandable>` +
           `<b>Domain:</b> <code>${escapeHtml(domain)}</code>\n` +
           `<b>URL:</b> <a href="${escapeHtml(targetUrl)}">${escapeHtml(targetUrl)}</a>` +
-          `</blockquote>\n\n` +
-          `<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>`;
+          `</blockquote>`;
 
         const keyboard = new InlineKeyboard().url('Open Link', targetUrl);
 
@@ -112,22 +95,17 @@ export class WebModule extends BaseModule {
               reply_markup: keyboard,
             })
             .catch(async () => {
-              const mediaTag = `<img src="${escapeHtml(screenshotUrl)}" />`;
-              const mediaContainer = `<figure>${mediaTag}</figure>`;
-              const buttonRow = `<tg-button-row align="center">\n  <tg-button type="url" style="primary" url="${escapeHtml(targetUrl)}">Open Link</tg-button>\n</tg-button-row>`;
-              const richHtml = [mediaContainer, caption, buttonRow].join('\n\n');
-
+              const fallbackUrl = `https://image.thum.io/get/width/1280/crop/800/${targetUrl}`;
               await ctx
                 .answerGuestQuery({
-                  type: 'article',
-                  id: `guest_web_art_${Date.now()}`,
+                  type: 'photo',
+                  id: `guest_web_fallback_${Date.now()}`,
+                  photo_url: fallbackUrl,
+                  thumbnail_url: fallbackUrl,
                   title: `Screenshot: ${domain}`,
-                  thumbnail_url: screenshotUrl,
-                  input_message_content: {
-                    rich_message: {
-                      html: richHtml,
-                    },
-                  },
+                  caption,
+                  parse_mode: 'HTML',
+                  reply_markup: keyboard,
                 })
                 .catch(() => {});
             });
@@ -140,30 +118,35 @@ export class WebModule extends BaseModule {
         await ctx.replyWithChatAction('upload_photo').catch(() => {});
 
         try {
-          const result = await fetchScreenshot(targetUrl, domain);
-          await ctx.api.sendPhoto(
-            chatId,
-            new InputFile(new Uint8Array(result.buffer), `${domain}.${result.ext}`),
-            {
+          await ctx.api.sendPhoto(chatId, screenshotUrl, {
+            caption,
+            parse_mode: 'HTML',
+            reply_markup: keyboard,
+            reply_parameters: ctx.msg?.message_id ? { message_id: ctx.msg.message_id } : undefined,
+          });
+        } catch (err) {
+          console.warn('[WebModule] Primary sendPhoto failed, trying Thum.io fallback:', err);
+          try {
+            const fallbackUrl = `https://image.thum.io/get/width/1280/crop/800/${targetUrl}`;
+            await ctx.api.sendPhoto(chatId, fallbackUrl, {
               caption,
               parse_mode: 'HTML',
               reply_markup: keyboard,
               reply_parameters: ctx.msg?.message_id
                 ? { message_id: ctx.msg.message_id }
                 : undefined,
-            }
-          );
-        } catch (err) {
-          console.error('[WebModule] Screenshot delivery failed:', err);
-          const errorMsg =
-            `❌ <b>Screenshot Failed</b>\n\n` +
-            `<blockquote expandable>` +
-            `Could not capture screenshot for <code>${escapeHtml(targetUrl)}</code>.\n` +
-            `Please ensure the website is online and accessible.` +
-            `</blockquote>\n\n` +
-            `<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>`;
+            });
+          } catch (fallbackErr) {
+            console.error('[WebModule] All screenshot delivery attempts failed:', fallbackErr);
+            const errorMsg =
+              `❌ <b>Screenshot Failed</b>\n\n` +
+              `<blockquote expandable>` +
+              `Could not capture screenshot for <code>${escapeHtml(targetUrl)}</code>.\n` +
+              `Please ensure the website is online and accessible.` +
+              `</blockquote>`;
 
-          await ctx.respond(errorMsg);
+            await ctx.respond(errorMsg);
+          }
         }
       },
       {
@@ -180,8 +163,7 @@ export class WebModule extends BaseModule {
           await ctx.respond(
             `<b>Command Prefix</b>\n\n` +
               `Current prefix: <code>${escapeHtml(ctx.prefix)}</code>\n\n` +
-              `To change: <code>${escapeHtml(ctx.prefix)}setprefix !</code>\n\n` +
-              `<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>`
+              `To change: <code>${escapeHtml(ctx.prefix)}setprefix !</code>`
           );
           return;
         }
@@ -197,8 +179,7 @@ export class WebModule extends BaseModule {
         await ctx.respond(
           `✅ <b>Prefix updated to <code>${escapeHtml(newPrefix)}</code>!</b>\n\n` +
             `• <b>Direct/Group:</b> <code>${escapeHtml(newPrefix)}ss &lt;link&gt;</code>\n` +
-            `• <b>Group Mention:</b> <code>@${ctx.me?.username || 'deltaxapp'} ${escapeHtml(newPrefix)}ss &lt;link&gt;</code>\n\n` +
-            `<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>`
+            `• <b>Group Mention:</b> <code>@${ctx.me?.username || 'deltaxapp'} ${escapeHtml(newPrefix)}ss &lt;link&gt;</code>`
         );
       },
       {
