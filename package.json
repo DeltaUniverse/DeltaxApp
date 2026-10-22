@@ -7,7 +7,12 @@
     "generate:modules": "node scripts/auto_import.mjs",
     "watch:modules": "node scripts/auto_import.mjs --watch",
     "make:module": "node scripts/create_module.mjs",
-    "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run format:check && npm run lint && npm run typecheck",
     "clean": "node -e 'fs.rmSync(\"dist\", { recursive: true, force: true }); fs.rmSync(\".wrangler\", { recursive: true, force: true })'",
     "predev": "node scripts/auto_import.mjs",
     "dev": "wrangler dev",
@@ -15,7 +20,7 @@
     "build": "node scripts/auto_import.mjs && wrangler deploy --dry-run --outdir dist",
     "deploy": "node scripts/auto_import.mjs && wrangler deploy",
     "test": "node --test tests/*.test.mjs",
-    "prepare": "pre-commit install 2>/dev/null && (which termux-fix-shebang >/dev/null 2>&1 && termux-fix-shebang .git/hooks/* || true) || true"
+    "prepare": "husky && (which termux-fix-shebang >/dev/null 2>&1 && termux-fix-shebang .husky/* .husky/_/* node_modules/.bin/* || true) || true"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -39,7 +44,17 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261019.1",
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.13.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.10",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.0",
     "wrangler": "^4.123.0"
   }
 }

@@ -39,8 +39,8 @@ jobs:
           npm run generate:modules
           git diff --exit-code src/modules/index.ts
 
-      - name: Typecheck TypeScript
-        run: npm run typecheck
+      - name: Run code quality checks
+        run: npm run check
 
       - name: Build Worker bundle
         run: npm run build
