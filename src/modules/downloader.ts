@@ -164,6 +164,12 @@ export class DownloaderModule extends BaseModule {
       return parts.join('\n\n');
     };
 
+    const isLive = Boolean(
+      result.caption &&
+      (result.caption.includes('LIVE') || result.caption.includes('Siaran') || result.id === 'live')
+    );
+    const buttonText = isLive ? 'Watch LIVE on TikTok' : 'Original Post';
+
     if (isGuestQuery) {
       const blocks: string[] = [];
 
@@ -183,13 +189,15 @@ export class DownloaderModule extends BaseModule {
       blocks.push(`<blockquote>${brandLine}</blockquote>`);
 
       const mediaContainer = buildGuestMediaContainer(result.items);
-      const buttonRow = `<tg-button-row align="center">\n  <tg-button type="url" style="primary" url="${escapeHtml(url)}">Original Post</tg-button>\n</tg-button-row>`;
+      const buttonRow = `<tg-button-row align="center">\n  <tg-button type="url" style="primary" url="${escapeHtml(url)}">${buttonText}</tg-button>\n</tg-button-row>`;
       const richHtml = [mediaContainer, ...blocks, buttonRow].join('\n\n');
 
       await ctx.answerGuestQuery({
         type: 'article',
         id: `guest_${Date.now()}`,
-        title: `${platformLabel} ${result.items.length > 1 ? `Slideshow (${result.items.length} items)` : 'Media'}`,
+        title: isLive
+          ? `🔴 TikTok LIVE: ${result.author?.name || 'Live'}`
+          : `${platformLabel} ${result.items.length > 1 ? `Slideshow (${result.items.length} items)` : 'Media'}`,
         thumbnail_url: result.items[0].thumbnailUrl || result.items[0].url,
         input_message_content: {
           rich_message: {
@@ -209,7 +217,7 @@ export class DownloaderModule extends BaseModule {
     const standardBody = truncateCaption(cleanCaption, 1024, overhead);
 
     const caption = buildStandardCaption(standardBody);
-    const keyboard = new InlineKeyboard().url('Original Post', url);
+    const keyboard = new InlineKeyboard().url(buttonText, url);
 
     try {
       if (!chatId) {

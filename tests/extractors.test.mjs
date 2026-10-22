@@ -6,8 +6,11 @@ const TWITTER_URL_REGEX =
 const TCO_URL_REGEX = /https?:\/\/t\.co\/([a-zA-Z0-9_-]+)/i;
 
 const TIKTOK_URL_REGEX =
-  /https?:\/\/(?:www\.|m\.)?tiktok\.com\/@[a-zA-Z0-9_.-]+\/(?:video|photo)\/(\d+)/i;
-const TIKTOK_VM_REGEX = /https?:\/\/(?:vm|vt)\.tiktok\.com\/([a-zA-Z0-9]+)/i;
+  /https?:\/\/(?:(?:www|m)\.)?(?:vx)?tiktok\.com\/(?:(?:embed|@[\w.-]*)\/)?(?:v(?:ideo)?|p(?:hoto)?)\/(?<id>\d+)/i;
+const TIKTOK_VM_REGEX =
+  /https?:\/\/(?:(?:vm|vt|www)\.)?(?:vx)?tiktok\.com\/(?:t\/)?(?<id>[a-zA-Z0-9_-]+)/i;
+const TIKTOK_LIVE_REGEX =
+  /https?:\/\/(?:(?:www|m)\.)?(?:vx)?tiktok\.com\/(?:@(?<username>[\w.-]+)\/)?live(?:\?[^\s"'<>]*)?/i;
 
 const INSTAGRAM_URL_REGEX = /https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel|tv)\/([a-zA-Z0-9_-]+)/i;
 const INSTAGRAM_SHARE_REGEX =
@@ -26,14 +29,10 @@ function findSupportedUrl(text) {
     return { platform: 'instagram', url: igMatch[0] };
   }
 
-  const ttMatch = text.match(TIKTOK_URL_REGEX);
+  const ttMatch =
+    text.match(TIKTOK_URL_REGEX) || text.match(TIKTOK_VM_REGEX) || text.match(TIKTOK_LIVE_REGEX);
   if (ttMatch) {
     return { platform: 'tiktok', url: ttMatch[0] };
-  }
-
-  const ttShortMatch = text.match(TIKTOK_VM_REGEX);
-  if (ttShortMatch) {
-    return { platform: 'tiktok', url: ttShortMatch[0] };
   }
 
   const twMatch = text.match(TWITTER_URL_REGEX);
@@ -68,14 +67,20 @@ describe('Deltax App - Media Extractor URL Detectors', () => {
     const webUrl = 'https://www.tiktok.com/@user/video/7106594312292453675';
     const vmUrl = 'https://vm.tiktok.com/ZMhdR5t9/';
     const vtUrl = 'https://vt.tiktok.com/ZS23abcd/';
+    const vtLongUrl = 'https://vt.tiktok.com/ZS9U7xh4YHw89-31OFR/';
+    const liveUrl = 'https://www.tiktok.com/@gitazzah/live';
 
     assert.equal(findSupportedUrl(webUrl)?.platform, 'tiktok');
     assert.equal(findSupportedUrl(vmUrl)?.platform, 'tiktok');
     assert.equal(findSupportedUrl(vtUrl)?.platform, 'tiktok');
+    assert.equal(findSupportedUrl(vtLongUrl)?.platform, 'tiktok');
+    assert.equal(findSupportedUrl(liveUrl)?.platform, 'tiktok');
 
     assert.ok(TIKTOK_URL_REGEX.test(webUrl));
     assert.ok(TIKTOK_VM_REGEX.test(vmUrl));
     assert.ok(TIKTOK_VM_REGEX.test(vtUrl));
+    assert.ok(TIKTOK_VM_REGEX.test(vtLongUrl));
+    assert.ok(TIKTOK_LIVE_REGEX.test(liveUrl));
   });
 
   test('correctly identifies Twitter / X URLs', () => {
