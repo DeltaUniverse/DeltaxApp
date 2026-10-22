@@ -17,32 +17,6 @@
 
 Deltax App is a serverless runtime architecture for Telegram bots running inside Cloudflare Workers V8 isolates. It refactors traditional persistent bot architectures into an event-driven, single-pass pipeline with deterministic prefix routing, isolated module lifecycles, and non-blocking asynchronous execution.
 
-## Architecture
-
-```
-Incoming Webhook
-       │
-       ▼
-┌──────────────┐
-│  Hono Router │  Secret token authentication & health probe
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│  Classifier  │  Single-pass intent resolution (command | url | guest)
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│  Dispatcher  │  Deterministic prefix matching & module execution
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│ Async Worker │  Immediate 200 OK + non-blocking ctx.waitUntil()
-└──────────────┘
-```
-
 ## Design Principles
 
 ### 1. Non-Blocking Edge Concurrency
