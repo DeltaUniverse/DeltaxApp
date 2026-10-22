@@ -29,7 +29,7 @@ export class StartModule extends BaseModule {
           `<blockquote expandable>` +
           `<b>How to use:</b>\n` +
           `• <b>Direct Chat:</b> Send any media link to this chat.\n` +
-          `• <b>Group (Guest Mode):</b> Mention the bot in any group without adding it as a member:\n` +
+          `• <b>Group Mention:</b> Mention the bot in any group:\n` +
           `<code>@${botUsername} &lt;link&gt;</code>` +
           `</blockquote>\n\n` +
           `<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>`;

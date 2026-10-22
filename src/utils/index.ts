@@ -7,4 +7,5 @@
 export * from './telegram';
 export * from './media';
 export * from './misc';
+export * from './url';
 export * from './extractors';

@@ -5,7 +5,6 @@ import type { BotContext } from '../types';
 import {
   formatCount,
   escapeRegex,
-  extractMessageUrls,
   getChatId,
   buildGuestMediaContainer,
   chunkMediaItems,
@@ -13,6 +12,7 @@ import {
   truncateCaption,
   findSupportedUrl,
   extractMedia,
+  extractDownloadTarget,
   type ExtractedResult,
 } from '../utils';
 
@@ -70,45 +70,6 @@ export function isDownloadRequest(
   if (mentionRegex.test(trimmed)) return true;
 
   return false;
-}
-
-/**
- * Extracts target media URL from command arguments or replied message
- */
-export function extractDownloadTarget(
-  text: string,
-  replyMsg?: any,
-  customPrefix?: string,
-  msgEntities?: any[]
-): { url: string; platform: 'instagram' | 'tiktok' | 'twitter' } | null {
-  // 1. Check if command message itself contains text_link entities
-  if (msgEntities) {
-    for (const ent of msgEntities) {
-      if (ent.type === 'text_link' && ent.url) {
-        const detected = findSupportedUrl(ent.url);
-        if (detected) return detected;
-      }
-    }
-  }
-
-  // 2. Check text for supported URL
-  const detectedInText = findSupportedUrl(text);
-  if (detectedInText) return detectedInText;
-
-  // 3. If no URL in text, inspect replied message
-  if (replyMsg) {
-    const { text: replyText, entityUrls } = extractMessageUrls(replyMsg);
-
-    for (const u of entityUrls) {
-      const detected = findSupportedUrl(u);
-      if (detected) return detected;
-    }
-
-    const detectedInReply = findSupportedUrl(replyText);
-    if (detectedInReply) return detectedInReply;
-  }
-
-  return null;
 }
 
 export class DownloaderModule extends BaseModule {

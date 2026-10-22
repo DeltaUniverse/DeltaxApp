@@ -20,8 +20,10 @@ export * from './instagram';
 export * from './tiktok';
 export * from './twitter';
 
+export type SupportedPlatform = 'instagram' | 'tiktok' | 'twitter';
+
 export interface DetectedUrl {
-  platform: 'instagram' | 'tiktok' | 'twitter';
+  platform: SupportedPlatform;
   url: string;
 }
 

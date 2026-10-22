@@ -318,6 +318,126 @@ describe('Deltax App - Utilities (Telegram, Media, Misc)', () => {
       assert.equal(parseDomainAndUrl('invalid-no-dot'), null);
       assert.equal(parseDomainAndUrl(''), null);
     });
+
+    test('extractTargetUrl extracts URLs from arguments, mentions, and reply messages', () => {
+      function extractTargetUrl(text, replyMsg, customPrefix = '/', msgEntities) {
+        if (msgEntities) {
+          for (const ent of msgEntities) {
+            if (ent.type === 'text_link' && ent.url) {
+              const res = parseDomainAndUrl(ent.url);
+              if (res) return res;
+            }
+          }
+        }
+
+        let cleaned = text.replace(/^@\w+\s+/i, '').trim();
+        const prefixes = Array.from(new Set([customPrefix || '/', '/']));
+        for (const p of prefixes) {
+          const escP = escapeRegex(p);
+          cleaned = cleaned
+            .replace(new RegExp(`^${escP}web(?:\\s+ss)?(?:@\\w+)?(?:\\s+|$)`, 'i'), '')
+            .replace(new RegExp(`^${escP}ss(?:@\\w+)?(?:\\s+|$)`, 'i'), '')
+            .trim();
+        }
+
+        const matchInArgs =
+          cleaned.match(/https?:\/\/[^\s]+/i) ||
+          cleaned.match(/\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/i);
+
+        if (matchInArgs) {
+          const res = parseDomainAndUrl(matchInArgs[0]);
+          if (res) return res;
+        }
+
+        if (replyMsg) {
+          const { text: replyText, entityUrls } = extractMessageUrls(replyMsg);
+          for (const u of entityUrls) {
+            const res = parseDomainAndUrl(u);
+            if (res) return res;
+          }
+          if (replyText) {
+            const matchInReply =
+              replyText.match(/https?:\/\/[^\s]+/i) ||
+              replyText.match(/\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/i);
+            if (matchInReply) {
+              const res = parseDomainAndUrl(matchInReply[0]);
+              if (res) return res;
+            }
+          }
+        }
+
+        return null;
+      }
+
+      // Direct argument
+      const direct = extractTargetUrl('!ss google.com', null, '!');
+      assert.deepEqual(direct, { url: 'https://google.com', domain: 'google.com' });
+
+      // With mention
+      const withMention = extractTargetUrl('@deltaxapp !ss https://github.com', null, '!');
+      assert.deepEqual(withMention, { url: 'https://github.com', domain: 'github.com' });
+
+      // From replied message
+      const fromReply = extractTargetUrl('!ss', { text: 'Check this link: https://cloudflare.com' }, '!');
+      assert.deepEqual(fromReply, { url: 'https://cloudflare.com', domain: 'cloudflare.com' });
+
+      // No URL
+      assert.equal(extractTargetUrl('!ss', null, '!'), null);
+    });
+
+    test('extractDownloadTarget extracts social URLs from args, entities, or replied message', () => {
+      function findSupportedUrl(text) {
+        if (!text) return null;
+        if (text.includes('instagram.com/reel/123')) return { platform: 'instagram', url: 'https://www.instagram.com/reel/123' };
+        if (text.includes('tiktok.com/@user/video/456')) return { platform: 'tiktok', url: 'https://tiktok.com/@user/video/456' };
+        return null;
+      }
+
+      function extractDownloadTarget(text, replyMsg, _customPrefix, msgEntities) {
+        if (msgEntities) {
+          for (const ent of msgEntities) {
+            if (ent.type === 'text_link' && ent.url) {
+              const detected = findSupportedUrl(ent.url);
+              if (detected) return detected;
+            }
+          }
+        }
+        const detectedInText = findSupportedUrl(text);
+        if (detectedInText) return detectedInText;
+        if (replyMsg) {
+          const { text: replyText, entityUrls } = extractMessageUrls(replyMsg);
+          for (const u of entityUrls) {
+            const detected = findSupportedUrl(u);
+            if (detected) return detected;
+          }
+          if (replyText) {
+            const detectedInReply = findSupportedUrl(replyText);
+            if (detectedInReply) return detectedInReply;
+          }
+        }
+        return null;
+      }
+
+      // From text
+      assert.deepEqual(extractDownloadTarget('!dl https://www.instagram.com/reel/123'), {
+        platform: 'instagram',
+        url: 'https://www.instagram.com/reel/123',
+      });
+
+      // From entity
+      assert.deepEqual(
+        extractDownloadTarget('!dl click here', null, '!', [
+          { type: 'text_link', url: 'https://tiktok.com/@user/video/456' },
+        ]),
+        { platform: 'tiktok', url: 'https://tiktok.com/@user/video/456' }
+      );
+
+      // From replied message
+      assert.deepEqual(
+        extractDownloadTarget('!dl', { text: 'Watch this https://www.instagram.com/reel/123' }),
+        { platform: 'instagram', url: 'https://www.instagram.com/reel/123' }
+      );
+    });
   });
 
   describe('Media Utilities', () => {

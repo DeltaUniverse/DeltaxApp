@@ -2,75 +2,7 @@ import { InlineKeyboard, InputFile } from 'grammy';
 import { BaseModule, PrefixService, isOwner, type CommandContext } from '../core';
 import { escapeHtml } from '../html';
 import type { BotContext } from '../types';
-import { escapeRegex, parseDomainAndUrl, extractMessageUrls } from '../utils';
-
-/**
- * Extracts target URL and domain from command text or replied message
- */
-export function extractTargetUrl(
-  text: string,
-  replyMsg?: any,
-  customPrefix?: string,
-  msgEntities?: any[]
-): { url: string; domain: string } | null {
-  // 1. Check if command message itself contains text_link entities
-  if (msgEntities) {
-    for (const ent of msgEntities) {
-      if (ent.type === 'text_link' && ent.url) {
-        const res = parseDomainAndUrl(ent.url);
-        if (res) return res;
-      }
-    }
-  }
-
-  // 2. Strip leading bot mention (e.g. @deltaxapp)
-  let cleaned = text.replace(/^@\w+\s+/i, '').trim();
-
-  // 3. Strip command prefixes (/web ss, !web ss, /ss, !ss, /web, !web)
-  const prefixes = Array.from(new Set([customPrefix || '/', '/']));
-  for (const p of prefixes) {
-    const escP = escapeRegex(p);
-    cleaned = cleaned
-      .replace(new RegExp(`^${escP}web(?:\\s+ss)?(?:@\\w+)?(?:\\s+|$)`, 'i'), '')
-      .replace(new RegExp(`^${escP}ss(?:@\\w+)?(?:\\s+|$)`, 'i'), '')
-      .trim();
-  }
-
-  // 4. Try extracting from cleaned command arguments first
-  const matchInArgs =
-    cleaned.match(/https?:\/\/[^\s]+/i) ||
-    cleaned.match(/\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/i);
-
-  if (matchInArgs) {
-    const res = parseDomainAndUrl(matchInArgs[0]);
-    if (res) return res;
-  }
-
-  // 5. If no URL in arguments, inspect the replied message!
-  if (replyMsg) {
-    const { text: replyText, entityUrls } = extractMessageUrls(replyMsg);
-
-    // 5a. Check text_link / url entities in replied message
-    for (const u of entityUrls) {
-      const res = parseDomainAndUrl(u);
-      if (res) return res;
-    }
-
-    // 5b. Check plain text/caption in replied message
-    if (replyText) {
-      const matchInReply =
-        replyText.match(/https?:\/\/[^\s]+/i) ||
-        replyText.match(/\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/i);
-
-      if (matchInReply) {
-        const res = parseDomainAndUrl(matchInReply[0]);
-        if (res) return res;
-      }
-    }
-  }
-
-  return null;
-}
+import { escapeRegex, extractTargetUrl } from '../utils';
 
 /**
  * Checks if a message is intended as a screenshot command.
@@ -310,7 +242,7 @@ export class WebModule extends BaseModule {
         await ctx.respond(
           `✅ <b>Prefix updated to <code>${escapeHtml(newPrefix)}</code>!</b>\n\n` +
           `• <b>Direct/Group:</b> <code>${escapeHtml(newPrefix)}ss &lt;link&gt;</code>\n` +
-          `• <b>Guest Mode:</b> <code>@${ctx.me?.username || 'deltaxapp'} ${escapeHtml(newPrefix)}ss &lt;link&gt;</code>\n\n` +
+          `• <b>Group Mention:</b> <code>@${ctx.me?.username || 'deltaxapp'} ${escapeHtml(newPrefix)}ss &lt;link&gt;</code>\n\n` +
           `<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>`
         );
       },

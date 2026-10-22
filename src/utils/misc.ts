@@ -52,25 +52,4 @@ export function randomAlphaNumeric(len: number): string {
   return res;
 }
 
-/**
- * Parses, sanitizes, and validates a URL string and extracts its canonical domain.
- */
-export function parseDomainAndUrl(raw: string): { url: string; domain: string } | null {
-  if (!raw) return null;
-  let targetUrl = raw.trim();
-  targetUrl = targetUrl.replace(/[.,;:!?)]+$/, '');
-
-  if (!/^https?:\/\//i.test(targetUrl)) {
-    targetUrl = `https://${targetUrl}`;
-  }
-
-  try {
-    const parsed = new URL(targetUrl);
-    if (!['http:', 'https:'].includes(parsed.protocol)) return null;
-    if (!parsed.hostname || !parsed.hostname.includes('.')) return null;
-    const domain = parsed.hostname.replace(/^www\./i, '');
-    return { url: targetUrl, domain };
-  } catch {
-    return null;
-  }
-}
+export { parseDomainAndUrl } from './url';
