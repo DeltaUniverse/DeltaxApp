@@ -53,6 +53,11 @@ export class WebModule extends BaseModule {
     this.command(
       ['ss', 'web'],
       async (ctx: CommandContext) => {
+        const isGuest = Boolean(ctx.guest || ctx.isGuest);
+        const footer = isGuest
+          ? '\n\n<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>'
+          : '';
+
         const parsed = extractTargetUrl(ctx.input, ctx.replyMsg, ctx.prefix, ctx.msg?.entities);
         if (!parsed) {
           const usageMsg =
@@ -64,7 +69,7 @@ export class WebModule extends BaseModule {
             `• Or reply to any message containing a link with <code>${ctx.prefix}ss</code>\n\n` +
             `<b>Example:</b>\n` +
             `<code>${ctx.prefix}ss google.com</code>` +
-            `</blockquote>`;
+            `</blockquote>${footer}`;
 
           await ctx.respond(usageMsg);
           return;
@@ -78,7 +83,7 @@ export class WebModule extends BaseModule {
           `<blockquote expandable>` +
           `<b>Domain:</b> <code>${escapeHtml(domain)}</code>\n` +
           `<b>URL:</b> <a href="${escapeHtml(targetUrl)}">${escapeHtml(targetUrl)}</a>` +
-          `</blockquote>`;
+          `</blockquote>${footer}`;
 
         const keyboard = new InlineKeyboard().url('Open Link', targetUrl);
 
@@ -158,18 +163,21 @@ export class WebModule extends BaseModule {
     this.command(
       ['setprefix'],
       async (ctx: CommandContext) => {
+        const footer = ctx.isGuest
+          ? '\n\n<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>'
+          : '';
         const newPrefix = ctx.args[0];
         if (!newPrefix) {
           await ctx.respond(
             `<b>Command Prefix</b>\n\n` +
               `Current prefix: <code>${escapeHtml(ctx.prefix)}</code>\n\n` +
-              `To change: <code>${escapeHtml(ctx.prefix)}setprefix !</code>`
+              `To change: <code>${escapeHtml(ctx.prefix)}setprefix !</code>${footer}`
           );
           return;
         }
 
         if (newPrefix.length > 5) {
-          await ctx.respond('⚠️ Prefix must be between 1 and 5 characters.');
+          await ctx.respond(`⚠️ Prefix must be between 1 and 5 characters.${footer}`);
           return;
         }
 
@@ -179,7 +187,7 @@ export class WebModule extends BaseModule {
         await ctx.respond(
           `✅ <b>Prefix updated to <code>${escapeHtml(newPrefix)}</code>!</b>\n\n` +
             `• <b>Direct/Group:</b> <code>${escapeHtml(newPrefix)}ss &lt;link&gt;</code>\n` +
-            `• <b>Group Mention:</b> <code>@${ctx.me?.username || 'deltaxapp'} ${escapeHtml(newPrefix)}ss &lt;link&gt;</code>`
+            `• <b>Group Mention:</b> <code>@${ctx.me?.username || 'deltaxapp'} ${escapeHtml(newPrefix)}ss &lt;link&gt;</code>${footer}`
         );
       },
       {
