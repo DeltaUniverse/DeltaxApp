@@ -8,4 +8,3 @@ export * from './telegram';
 export * from './media';
 export * from './misc';
 export * from './extractors';
-export * from './bing';
