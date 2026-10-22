@@ -304,17 +304,13 @@ export class WallpaperModule extends BaseModule {
           ? `${data.start_date.slice(0, 4)}-${data.start_date.slice(4, 6)}-${data.start_date.slice(6, 8)}`
           : 'Today';
 
-        const footer = guestMode
-          ? '\n\n<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>'
-          : '';
-
         const caption =
           `🖼️ <b>${escapeHtml(data.title)}</b>\n\n` +
           `<blockquote expandable>` +
           `<b>Description:</b> ${escapeHtml(data.copyright)}\n` +
           `<b>Date:</b> <code>${escapeHtml(formattedDate)}</code>\n` +
           `<b>Region:</b> <code>${escapeHtml(data.market)}</code>` +
-          `</blockquote>${footer}`;
+          `</blockquote>`;
 
         const keyboard = new InlineKeyboard()
           .url('4K UHD Wallpaper', data.uhd_url || data.url)
@@ -375,7 +371,7 @@ export class WallpaperModule extends BaseModule {
             `<b>Region:</b> <code>${escapeHtml(data.market)}</code>\n\n` +
             `• <a href="${escapeHtml(data.uhd_url || data.url)}">Direct 4K UHD Wallpaper</a>\n` +
             `• <a href="${escapeHtml(data.copyright_link)}">Bing Story Search</a>` +
-            `</blockquote>${footer}`;
+            `</blockquote>`;
 
           await ctx.respond(fallbackText, { reply_markup: keyboard });
         }

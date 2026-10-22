@@ -155,12 +155,7 @@ export class CommandDispatcher {
     });
 
     if (regCmd.options.ownerOnly && !isSenderOwner) {
-      const footer = isGuest
-        ? '\n\n<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>'
-        : '';
-      await cmdCtx.respond(
-        `⚠️ <b>Access Denied:</b> Only the bot owner can execute this command.${footer}`
-      );
+      await cmdCtx.respond(`⚠️ <b>Access Denied:</b> Only the bot owner can execute this command.`);
       return true;
     }
 

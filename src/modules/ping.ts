@@ -22,10 +22,7 @@ export class PingModule extends BaseModule {
         await ctx.api.getMe().catch(() => {});
         const latency = Math.round(performance.now() - start);
 
-        const footer = ctx.isGuest
-          ? html` <blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>`
-          : '';
-        const pongText = html`<b>Pong!</b> <code>${latency}ms</code>${footer}`;
+        const pongText = html`<b>Pong!</b> <code>${latency}ms</code>`;
 
         if (sent.inline_message_id) {
           await ctx.api

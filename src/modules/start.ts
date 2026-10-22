@@ -20,10 +20,6 @@ export class StartModule extends BaseModule {
         const mention = getUserMention(ctx.from);
         const botUsername = ctx.me?.username || 'deltaxapp';
 
-        const footer = ctx.isGuest
-          ? '\n\n<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>'
-          : '';
-
         const message =
           `<b>Hey ${mention}!</b>\n\n` +
           `Send a link from <b>Instagram</b>, <b>TikTok</b>, <b>Threads</b>, or <b>X</b> to download media.\n\n` +
@@ -32,7 +28,7 @@ export class StartModule extends BaseModule {
           `• <b>Direct Chat:</b> Send any media link to this chat.\n` +
           `• <b>Group Mention:</b> Mention the bot in any group:\n` +
           `<code>@${botUsername} &lt;link&gt;</code>` +
-          `</blockquote>${footer}`;
+          `</blockquote>`;
 
         const keyboard = new InlineKeyboard().url(
           'Catch me',
@@ -75,8 +71,7 @@ export class StartModule extends BaseModule {
             `Send or mention with a media link (Instagram, TikTok, Threads, X) to download.\n\n` +
             `<b>Example:</b>\n` +
             `<code>@${botUsername} &lt;link&gt;</code>` +
-            `</blockquote>\n\n` +
-            `<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>`,
+            `</blockquote>`,
           parse_mode: 'HTML',
         },
         reply_markup: keyboard,

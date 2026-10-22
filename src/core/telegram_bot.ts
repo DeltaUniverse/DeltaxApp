@@ -17,6 +17,41 @@ import type { BaseModule } from './base_module';
 import type { BotContext, Env } from '../types';
 import { ROUTES, BOT_CONFIG, HTTP_HEADERS } from '../config';
 
+export const GUEST_FOOTER =
+  '<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>';
+
+export function injectGuestFooter(result: unknown): void {
+  if (!result || typeof result !== 'object') return;
+  const res = result as Record<string, unknown>;
+
+  // 1. Article with input_message_content
+  if (res.input_message_content && typeof res.input_message_content === 'object') {
+    const imc = res.input_message_content as Record<string, unknown>;
+    if (typeof imc.message_text === 'string' && imc.message_text.trim()) {
+      if (!imc.message_text.includes('deltadiscuss')) {
+        imc.message_text = `${imc.message_text.trimEnd()}\n\n${GUEST_FOOTER}`;
+        imc.parse_mode = 'HTML';
+      }
+    }
+    if (imc.rich_message && typeof imc.rich_message === 'object') {
+      const rm = imc.rich_message as Record<string, unknown>;
+      if (typeof rm.html === 'string' && rm.html.trim()) {
+        if (!rm.html.includes('deltadiscuss')) {
+          rm.html = `${rm.html.trimEnd()}\n\n${GUEST_FOOTER}`;
+        }
+      }
+    }
+  }
+
+  // 2. Photo / Media with caption
+  if (typeof res.caption === 'string' && res.caption.trim()) {
+    if (!res.caption.includes('deltadiscuss')) {
+      res.caption = `${res.caption.trimEnd()}\n\n${GUEST_FOOTER}`;
+      res.parse_mode = 'HTML';
+    }
+  }
+}
+
 export class TelegramBotServer {
   private readonly _bot: Bot<BotContext>;
   private readonly _commandDispatcher: CommandDispatcher;
@@ -41,6 +76,18 @@ export class TelegramBotServer {
     this._bot.api.config.use(async (prev, method, payload, signal) => {
       if (payload && typeof payload === 'object') {
         const p = payload as Record<string, unknown>;
+
+        if (method === 'answerGuestQuery' && p.result) {
+          injectGuestFooter(p.result);
+        }
+
+        if (method === 'editMessageText' && typeof p.inline_message_id === 'string') {
+          if (typeof p.text === 'string' && p.text.trim() && !p.text.includes('deltadiscuss')) {
+            p.text = `${p.text.trimEnd()}\n\n${GUEST_FOOTER}`;
+            p.parse_mode = 'HTML';
+          }
+        }
+
         if (
           ('text' in p || 'caption' in p) &&
           !('parse_mode' in p) &&
@@ -115,6 +162,32 @@ export class TelegramBotServer {
         }
         return originalReply(textOrFmt as string, other);
       };
+
+      if (typeof ctx.answerGuestQuery === 'function') {
+        const originalAnswerGuestQuery = ctx.answerGuestQuery.bind(ctx);
+        ctx.answerGuestQuery = (...args: Parameters<typeof originalAnswerGuestQuery>) => {
+          injectGuestFooter(args[0]);
+          return originalAnswerGuestQuery(...args);
+        };
+      }
+
+      if (typeof ctx.api?.editMessageTextInline === 'function') {
+        const originalEditInline = ctx.api.editMessageTextInline.bind(ctx.api);
+        ctx.api.editMessageTextInline = (...args: Parameters<typeof originalEditInline>) => {
+          const [inlineId, textOrRich, other, signal] = args;
+          let finalText = textOrRich;
+          let finalOther = other;
+          if (
+            typeof textOrRich === 'string' &&
+            textOrRich.trim() &&
+            !textOrRich.includes('deltadiscuss')
+          ) {
+            finalText = `${textOrRich.trimEnd()}\n\n${GUEST_FOOTER}`;
+            finalOther = { ...other, parse_mode: 'HTML' };
+          }
+          return originalEditInline(inlineId, finalText, finalOther, signal);
+        };
+      }
 
       return next();
     });
