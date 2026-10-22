@@ -11,15 +11,18 @@ export class PingModule extends BaseModule {
     this.command(
       ['ping', 'p'],
       async (ctx: CommandContext) => {
-        const start = performance.now();
         const sent = (await ctx.respond(html`<b>Pinging...</b>`)) as
           | { inline_message_id?: string; message_id?: number; chat?: { id?: number | string } }
           | undefined;
 
-        const latency = Math.round(performance.now() - start);
-        const pongText = html`<b>Pong!</b> <code>${latency}ms</code>`;
-
         if (!sent) return;
+
+        // Measure pure API roundtrip over the established warm connection
+        const start = performance.now();
+        await ctx.api.getMe().catch(() => {});
+        const latency = Math.round(performance.now() - start);
+
+        const pongText = html`<b>Pong!</b> <code>${latency}ms</code>`;
 
         if (sent.inline_message_id) {
           await ctx.api
