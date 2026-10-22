@@ -11,6 +11,7 @@
 
 import type { ModuleConstructor } from '../types';
 import { DownloaderModule } from './downloader';
+import { PingModule } from './ping';
 import { StartModule } from './start';
 import { WallpaperModule } from './wallpaper';
 import { WebModule } from './web';
@@ -20,6 +21,7 @@ import { WebModule } from './web';
  */
 export const AUTO_MODULES: ModuleConstructor[] = [
   DownloaderModule,
+  PingModule,
   StartModule,
   WallpaperModule,
   WebModule,

@@ -13,11 +13,9 @@ describe('Deltax App - Serverless Telegram Bot Worker', () => {
   let worker;
 
   before(async () => {
+    execSync('npm run build', { cwd: rootDir, stdio: 'pipe' });
     const distFile = path.resolve(rootDir, 'dist/index.js');
-    if (!fs.existsSync(distFile)) {
-      execSync('npm run build', { cwd: rootDir, stdio: 'pipe' });
-    }
-    const module = await import(distFile);
+    const module = await import(`${distFile}?t=${Date.now()}`);
     worker = module.default;
   });
 
@@ -54,6 +52,7 @@ describe('Deltax App - Serverless Telegram Bot Worker', () => {
     assert.ok(moduleIds.includes('web'), 'Should have web module');
     assert.ok(moduleIds.includes('downloader'), 'Should have downloader module');
     assert.ok(moduleIds.includes('wallpaper'), 'Should have wallpaper module');
+    assert.ok(moduleIds.includes('ping'), 'Should have ping module');
     assert.equal(data.isColdStart, true, 'First request on worker instance should be cold start');
   });
 

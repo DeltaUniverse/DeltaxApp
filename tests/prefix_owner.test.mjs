@@ -277,7 +277,7 @@ describe('Deltax App - Strict Prefix Enforcement & Owner Authorization', () => {
   });
 
   test('classifyGuestMessage: "@bot !ss <url>" and "@bot !setprefix" handled with prefixes "/" and "!"', () => {
-    const commands = ['dl', 'download', 'ss', 'web', 'setprefix', 'start'];
+    const commands = ['dl', 'download', 'ss', 'web', 'setprefix', 'start', 'ping', 'p'];
 
     // Prefix "!"
     const ssExclamation = { msg: { text: '@deltaxapp !ss https://google.com' } };
@@ -285,6 +285,18 @@ describe('Deltax App - Strict Prefix Enforcement & Owner Authorization', () => {
       kind: 'command',
       name: 'ss',
       args: 'https://google.com',
+    });
+
+    // Ping command
+    assert.deepEqual(classifyGuestMessage({ msg: { text: '@deltaxapp !ping' } }, commands, '!'), {
+      kind: 'command',
+      name: 'ping',
+      args: '',
+    });
+    assert.deepEqual(classifyGuestMessage({ msg: { text: '@deltaxapp /p' } }, commands, '/'), {
+      kind: 'command',
+      name: 'p',
+      args: '',
     });
 
     const setprefixExclamation = { msg: { text: '@deltaxapp !setprefix ?' } };

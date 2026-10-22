@@ -24,6 +24,7 @@ describe('Deltax App - Module System & Event Handling', () => {
     assert.ok(content.includes('DownloaderModule'), 'Should include DownloaderModule');
     assert.ok(content.includes('WallpaperModule'), 'Should include WallpaperModule');
     assert.ok(content.includes('WebModule'), 'Should include WebModule');
+    assert.ok(content.includes('PingModule'), 'Should include PingModule');
   });
 
   test('simplified module event handling: registers commands and dispatches cleanly in-memory', async () => {
