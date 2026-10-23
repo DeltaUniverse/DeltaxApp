@@ -7,6 +7,7 @@
 import type { Composer } from 'grammy';
 import { Bot, type MiddlewareFn } from 'grammy';
 import type { Update } from 'grammy/types';
+import { autoRetry, type AutoRetryOptions } from '@grammyjs/auto-retry';
 import { FormattedString } from '@grammyjs/parse-mode';
 import { ModuleManager, type ModuleConstructor } from './module_manager';
 import { CommandDispatcher } from './command_dispatcher';
@@ -67,12 +68,20 @@ export class TelegramBotServer {
   private _isColdStart: boolean = true;
   private _currentIsColdStart: boolean = true;
 
-  constructor(token: string) {
+  constructor(token: string, retryOptions?: Partial<AutoRetryOptions>) {
     this._bot = new Bot<BotContext>(token, {
       client: {
         canUseWebhookReply: () => false,
       },
     });
+
+    this._bot.api.config.use(
+      autoRetry({
+        maxDelaySeconds: BOT_CONFIG.AUTO_RETRY.maxDelaySeconds,
+        maxRetryAttempts: BOT_CONFIG.AUTO_RETRY.maxRetryAttempts,
+        ...retryOptions,
+      })
+    );
 
     this._bot.api.config.use(async (prev, method, payload, signal) => {
       if (payload && typeof payload === 'object') {

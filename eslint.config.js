@@ -56,6 +56,14 @@ export default tseslint.config(
       },
     },
     rules: {
+      'no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
       eqeqeq: ['error', 'always'],
       'prefer-const': 'error',
       'no-console': 'off',

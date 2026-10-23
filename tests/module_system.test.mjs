@@ -232,4 +232,49 @@ describe('Deltax App - Module System & Event Handling', () => {
     assert.equal(executionTimeline[0], 'downstream_executed');
     assert.equal(executionTimeline[1], 'forked_done');
   });
+
+  test('autoRetry transformer intercepts 429 rate limit with retry_after and retries automatically', async () => {
+    const { autoRetry } = await import('@grammyjs/auto-retry');
+    let attempts = 0;
+    const transformer = autoRetry({ maxDelaySeconds: 10, maxRetryAttempts: 3 });
+
+    const prev = async (_method, _payload, _signal) => {
+      attempts++;
+      if (attempts === 1) {
+        return {
+          ok: false,
+          error_code: 429,
+          description: 'Too Many Requests: retry after 0.01',
+          parameters: { retry_after: 0.01 },
+        };
+      }
+      return { ok: true, result: { message_id: 999 } };
+    };
+
+    const res = await transformer(prev, 'sendMessage', { chat_id: 12345, text: 'test' });
+    assert.equal(attempts, 2);
+    assert.equal(res.ok, true);
+    assert.deepEqual(res.result, { message_id: 999 });
+  });
+
+  test('autoRetry respects maxDelaySeconds threshold when flood wait exceeds limit', async () => {
+    const { autoRetry } = await import('@grammyjs/auto-retry');
+    let attempts = 0;
+    const transformer = autoRetry({ maxDelaySeconds: 5, maxRetryAttempts: 3 });
+
+    const prev = async (_method, _payload, _signal) => {
+      attempts++;
+      return {
+        ok: false,
+        error_code: 429,
+        description: 'Too Many Requests: retry after 60',
+        parameters: { retry_after: 60 },
+      };
+    };
+
+    const res = await transformer(prev, 'sendMessage', { chat_id: 12345, text: 'test' });
+    assert.equal(attempts, 1);
+    assert.equal(res.ok, false);
+    assert.equal(res.error_code, 429);
+  });
 });

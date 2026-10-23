@@ -38,6 +38,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@grammyjs/auto-retry": "^2.0.2",
     "@grammyjs/parse-mode": "^2.3.0",
     "grammy": "^1.46.0",
     "hono": "^4.13.13"

@@ -11,6 +11,10 @@ export const BOT_CONFIG = {
   RUNTIME: 'Cloudflare Workers (V8 Isolate)',
   DEFAULT_ENVIRONMENT: 'production',
   DEFAULT_PARSE_MODE: 'HTML' as const,
+  AUTO_RETRY: {
+    maxDelaySeconds: 60,
+    maxRetryAttempts: 3,
+  },
 } as const;
 
 export const ROUTES = {
