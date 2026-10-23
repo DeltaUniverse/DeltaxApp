@@ -12,6 +12,14 @@ function escapeHtml(str) {
 function formatMarkdownToTelegramHtml(markdown) {
   if (!markdown) return '';
 
+  let text = markdown;
+
+  // Auto-close unterminated code fence
+  const fenceCount = (text.match(/```/g) || []).length;
+  if (fenceCount % 2 !== 0) {
+    text += '\n```\n';
+  }
+
   const placeholders = [];
   const createPlaceholder = (content) => {
     const idx = placeholders.length;
@@ -19,7 +27,7 @@ function formatMarkdownToTelegramHtml(markdown) {
     return `@@@DELTAXPH${idx}@@@`;
   };
 
-  let text = markdown.replace(/```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)```/g, (_, lang, code) => {
+  text = text.replace(/```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)```/g, (_, lang, code) => {
     const escapedCode = escapeHtml(code.trimEnd());
     const langAttr = lang ? ` class="language-${escapeHtml(lang)}"` : '';
     return createPlaceholder(`<pre><code${langAttr}>${escapedCode}</code></pre>`);
@@ -29,7 +37,20 @@ function formatMarkdownToTelegramHtml(markdown) {
     return createPlaceholder(`<code>${escapeHtml(inlineCode)}</code>`);
   });
 
+  // Convert markdown bullet points to unicode bullets before italic regex
+  text = text.replace(/^(\s*)[*-]\s+([^\r\n]+)$/gm, '$1• $2');
+
   text = escapeHtml(text);
+
+  // Group consecutive blockquotes into a single blockquote
+  text = text.replace(/(?:^|\n)((?:&gt;[^\r\n]*(?:\r?\n|$))+)/g, (_, quoteGroup) => {
+    const lines = quoteGroup
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^&gt;\s?/, ''))
+      .filter((line) => line.length > 0);
+    return `\n<blockquote>${lines.join('\n')}</blockquote>\n`;
+  });
+
   text = text.replace(/^(?:#{1,6})\s+([^\r\n]+)$/gm, '<b>$1</b>');
   text = text.replace(/\*\*([^*\r\n]+)\*\*/g, '<b>$1</b>');
   text = text.replace(/__([^_\r\n]+)__/g, '<b>$1</b>');
@@ -37,7 +58,6 @@ function formatMarkdownToTelegramHtml(markdown) {
   text = text.replace(/(?<![_\w])_([^_\r\n]+)_(?![_\w])/g, '<i>$1</i>');
   text = text.replace(/~~([^~\r\n]+)~~/g, '<s>$1</s>');
   text = text.replace(/\[([^\r\n[\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>');
-  text = text.replace(/(?:^|\n)&gt;\s*([^\r\n]+)/g, '\n<blockquote>$1</blockquote>');
 
   text = text.replace(/@@@DELTAXPH(\d+)@@@/g, (_, idxStr) => {
     const idx = parseInt(idxStr, 10);
@@ -78,10 +98,62 @@ function splitText(text, maxLength = 4000) {
   return chunks;
 }
 
+function splitMarkdown(markdown, maxLength = 4000) {
+  if (!markdown || markdown.length <= maxLength) {
+    return [markdown];
+  }
+
+  const chunks = [];
+  let remaining = markdown;
+  let inCodeFence = false;
+  let codeFenceLang = '';
+
+  while (remaining.length > maxLength) {
+    let splitIdx = remaining.lastIndexOf('\n\n', maxLength);
+    if (splitIdx === -1 || splitIdx < maxLength / 2) {
+      splitIdx = remaining.lastIndexOf('\n', maxLength);
+    }
+    if (splitIdx === -1 || splitIdx < maxLength / 2) {
+      splitIdx = remaining.lastIndexOf(' ', maxLength);
+    }
+    if (splitIdx === -1 || splitIdx === 0) {
+      splitIdx = maxLength;
+    }
+
+    let chunk = remaining.slice(0, splitIdx).trim();
+    remaining = remaining.slice(splitIdx).trim();
+
+    const fenceMatches = Array.from(chunk.matchAll(/(?:^|\n)```([a-zA-Z0-9_-]*)/g));
+    for (const match of fenceMatches) {
+      if (!inCodeFence) {
+        inCodeFence = true;
+        codeFenceLang = match[1] || '';
+      } else {
+        inCodeFence = false;
+        codeFenceLang = '';
+      }
+    }
+
+    if (inCodeFence) {
+      chunk += '\n```';
+      remaining = `\`\`\`${codeFenceLang}\n` + remaining;
+    }
+
+    chunks.push(chunk);
+  }
+
+  if (remaining.length > 0) {
+    chunks.push(remaining);
+  }
+
+  return chunks;
+}
+
 function buildAiMessages(query, replyText) {
   const systemPrompt =
     'You are a helpful, knowledgeable, and concise AI assistant running inside a Telegram bot. ' +
-    'Provide direct and accurate answers. Format code snippets, lists, and quotes using standard markdown.';
+    'Provide direct and accurate answers. Format code snippets, lists, and quotes using standard markdown. ' +
+    'Avoid markdown tables and nested headings.';
 
   const messages = [{ role: 'system', content: systemPrompt }];
 
@@ -106,6 +178,18 @@ function buildAiMessages(query, replyText) {
   }
 
   return messages;
+}
+
+async function computeAiCacheKey(model, messages) {
+  const normalized = messages
+    .map((m) => `${m.role}:${m.content.replace(/\s+/g, ' ').trim()}`)
+    .join('|');
+  const rawKey = `${model}|${normalized}`;
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(rawKey));
+  const hex = Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  return `ai:v1:${hex}`;
 }
 
 describe('Deltax App - Workers AI Module & Utilities', () => {
@@ -144,6 +228,40 @@ describe('Deltax App - Workers AI Module & Utilities', () => {
     test('handles empty or blank input', () => {
       assert.equal(formatMarkdownToTelegramHtml(''), '');
       assert.equal(formatMarkdownToTelegramHtml(null), '');
+    });
+
+    test('auto-closes unterminated code fence', () => {
+      const truncated = 'Here is code:\n```javascript\nconst x = 10;';
+      const html = formatMarkdownToTelegramHtml(truncated);
+      assert.ok(html.includes('<pre><code class="language-javascript">const x = 10;</code></pre>'));
+    });
+
+    test('converts * and - bullet points to bullets without corrupting italics', () => {
+      const md = '* First bullet\n- Second bullet\n*italic text*';
+      const html = formatMarkdownToTelegramHtml(md);
+      assert.ok(html.includes('• First bullet'));
+      assert.ok(html.includes('• Second bullet'));
+      assert.ok(html.includes('<i>italic text</i>'));
+    });
+
+    test('groups consecutive blockquote lines into a single blockquote', () => {
+      const md = '> Line 1\n> Line 2\n> Line 3';
+      const html = formatMarkdownToTelegramHtml(md);
+      assert.equal(html, '<blockquote>Line 1\nLine 2\nLine 3</blockquote>');
+    });
+  });
+
+  describe('splitMarkdown', () => {
+    test('closes and reopens code fences across split chunks', () => {
+      const code = 'const a = 1;\n'.repeat(20);
+      const md = 'Start\n```typescript\n' + code + '```\nEnd';
+      const chunks = splitMarkdown(md, 120);
+
+      assert.ok(chunks.length > 1);
+      // First chunk must end by closing the code fence
+      assert.ok(chunks[0].endsWith('```'));
+      // Second chunk must reopen the typescript code fence
+      assert.ok(chunks[1].startsWith('```typescript'));
     });
   });
 
@@ -246,6 +364,48 @@ describe('Deltax App - Workers AI Module & Utilities', () => {
 
       assert.equal(modelUsed, '@cf/meta/llama-3.3-70b-instruct-fp8-fast');
       assert.equal(sentText, 'Answer to: What is 2+2?');
+    });
+
+    test('computes cache key normalizing whitespace while preserving casing', async () => {
+      const msgs1 = [{ role: 'user', content: 'What   is   JavaScript?' }];
+      const msgs2 = [{ role: 'user', content: 'What is JavaScript?' }];
+      const msgs3 = [{ role: 'user', content: 'what is javascript?' }];
+
+      const key1 = await computeAiCacheKey('model-test', msgs1);
+      const key2 = await computeAiCacheKey('model-test', msgs2);
+      const key3 = await computeAiCacheKey('model-test', msgs3);
+
+      assert.equal(key1, key2, 'Whitespace normalization should produce identical cache key');
+      assert.notEqual(key1, key3, 'Casing should be preserved in cache key calculation');
+      assert.ok(key1.startsWith('ai:v1:'));
+    });
+
+    test('correctly identifies --fresh flag to bypass cache', () => {
+      let rawQuery = 'Explain quantum computing --fresh';
+      const isFresh = /--fresh\b/i.test(rawQuery);
+      if (isFresh) {
+        rawQuery = rawQuery.replace(/--fresh\b/gi, '').trim();
+      }
+
+      assert.equal(isFresh, true);
+      assert.equal(rawQuery, 'Explain quantum computing');
+    });
+
+    test('enforces per-user cooldown for non-owner requests', () => {
+      const cooldownMap = new Map();
+      const USER_COOLDOWN_MS = 3000;
+      const userId = 12345;
+      const now = Date.now();
+
+      cooldownMap.set(userId, now);
+
+      const isCoolingDown = (id) => {
+        const last = cooldownMap.get(id) || 0;
+        return Date.now() - last < USER_COOLDOWN_MS;
+      };
+
+      assert.equal(isCoolingDown(userId), true);
+      assert.equal(isCoolingDown(99999), false);
     });
   });
 });

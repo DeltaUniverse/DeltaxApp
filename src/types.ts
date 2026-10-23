@@ -15,6 +15,8 @@ export interface Env {
   WEBHOOK_URL?: string;
   DB?: D1Database;
   AI?: Ai;
+  AI_CACHE?: KVNamespace;
+  AI_GATEWAY_ID?: string;
   OWNER_ID?: string | number;
   ENVIRONMENT?: string;
   [key: string]: unknown;
