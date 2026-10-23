@@ -20,6 +20,7 @@ describe('Deltax App - Module System & Event Handling', () => {
     const content = fs.readFileSync(indexPath, 'utf-8');
 
     assert.ok(content.includes('AUTO_MODULES'), 'Should export AUTO_MODULES array');
+    assert.ok(content.includes('AiModule'), 'Should include AiModule');
     assert.ok(content.includes('StartModule'), 'Should include StartModule');
     assert.ok(content.includes('DownloaderModule'), 'Should include DownloaderModule');
     assert.ok(content.includes('WallpaperModule'), 'Should include WallpaperModule');

@@ -10,6 +10,7 @@
  */
 
 import type { ModuleConstructor } from '../types';
+import { AiModule } from './ai';
 import { DownloaderModule } from './downloader';
 import { PingModule } from './ping';
 import { StartModule } from './start';
@@ -20,6 +21,7 @@ import { WebModule } from './web';
  * Array of all auto-discovered module classes
  */
 export const AUTO_MODULES: ModuleConstructor[] = [
+  AiModule,
   DownloaderModule,
   PingModule,
   StartModule,

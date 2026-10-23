@@ -48,6 +48,7 @@ describe('Deltax App - Serverless Telegram Bot Worker', () => {
 
     const moduleIds = data.modules.map((m) => m.id);
     assert.ok(moduleIds.includes('start'), 'Should have start module');
+    assert.ok(moduleIds.includes('ai'), 'Should have ai module');
     assert.ok(moduleIds.includes('web'), 'Should have web module');
     assert.ok(moduleIds.includes('downloader'), 'Should have downloader module');
     assert.ok(moduleIds.includes('wallpaper'), 'Should have wallpaper module');

@@ -14,6 +14,7 @@ export interface Env {
   WEBHOOK_SECRET?: string;
   WEBHOOK_URL?: string;
   DB?: D1Database;
+  AI?: Ai;
   OWNER_ID?: string | number;
   ENVIRONMENT?: string;
   [key: string]: unknown;
