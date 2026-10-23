@@ -7,6 +7,7 @@ export * from './types';
 export * from './instagram';
 export * from './tiktok';
 export * from './twitter';
+export * from './anichin';
 
 export type SupportedPlatform = 'instagram' | 'tiktok' | 'twitter';
 

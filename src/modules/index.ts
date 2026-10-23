@@ -11,6 +11,7 @@
 
 import type { ModuleConstructor } from '../types';
 import { AiModule } from './ai';
+import { AnichinModule } from './anichin';
 import { DownloaderModule } from './downloader';
 import { HelpModule } from './help';
 import { PingModule } from './ping';
@@ -23,6 +24,7 @@ import { WebModule } from './web';
  */
 export const AUTO_MODULES: ModuleConstructor[] = [
   AiModule,
+  AnichinModule,
   DownloaderModule,
   HelpModule,
   PingModule,

@@ -140,6 +140,8 @@ export class CommandDispatcher {
             input_message_content: {
               message_text: text,
               parse_mode: parseMode,
+              link_preview_options: options?.link_preview_options as
+                Record<string, unknown> | undefined,
             },
             reply_markup: options?.reply_markup as InlineKeyboard | undefined,
           });
