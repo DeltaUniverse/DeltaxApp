@@ -51,6 +51,7 @@ describe('Deltax App - Serverless Telegram Bot Worker', () => {
     assert.ok(moduleIds.includes('ai'), 'Should have ai module');
     assert.ok(moduleIds.includes('web'), 'Should have web module');
     assert.ok(moduleIds.includes('downloader'), 'Should have downloader module');
+    assert.ok(moduleIds.includes('help'), 'Should have help module');
     assert.ok(moduleIds.includes('wallpaper'), 'Should have wallpaper module');
     assert.ok(moduleIds.includes('ping'), 'Should have ping module');
     assert.equal(data.isColdStart, true, 'First request on worker instance should be cold start');

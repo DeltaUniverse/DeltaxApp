@@ -16,6 +16,7 @@ export abstract class BaseModule {
   abstract readonly description: string;
   readonly version: string = '1.0.0';
   readonly enabled: boolean = true;
+  readonly forked: boolean = false;
 
   private readonly _composer: Composer<BotContext> = new Composer<BotContext>();
   private readonly _commands: CommandMeta[] = [];
@@ -138,5 +139,80 @@ export abstract class BaseModule {
   protected use(...middleware: MiddlewareFn<BotContext>[]): this {
     this._composer.use(...middleware);
     return this;
+  }
+
+  /**
+   * Creates a concurrent middleware branch that runs in parallel alongside downstream middleware.
+   * Utilizes grammY Composer.prototype.fork (interleaved via Promise.all).
+   */
+  protected fork(...middleware: MiddlewareFn<BotContext>[]): Composer<BotContext> {
+    return this._composer.fork(...middleware);
+  }
+
+  /**
+   * Registers an event listener on a forked concurrent branch.
+   * Runs in parallel with downstream middleware without blocking execution.
+   */
+  protected forkOn(
+    filter: FilterQuery,
+    handler: (ctx: BotContext) => Promise<unknown> | void
+  ): Composer<BotContext> {
+    const branch = this._composer.fork();
+    branch.on(filter, async (ctx, next) => {
+      try {
+        await handler(ctx);
+      } catch (error) {
+        logger.error(
+          { err: error, module: this.id, filter: String(filter) },
+          'forked listener error'
+        );
+      }
+      return next();
+    });
+    return branch;
+  }
+
+  /**
+   * Registers a text pattern matcher on a forked concurrent branch.
+   */
+  protected forkHears(
+    pattern: string | RegExp,
+    handler: (ctx: BotContext) => Promise<unknown> | void
+  ): Composer<BotContext> {
+    const branch = this._composer.fork();
+    branch.hears(pattern, async (ctx, next) => {
+      try {
+        await handler(ctx);
+      } catch (error) {
+        logger.error(
+          { err: error, module: this.id, pattern: String(pattern) },
+          'forked hears handler error'
+        );
+      }
+      return next();
+    });
+    return branch;
+  }
+
+  /**
+   * Registers a callback query listener on a forked concurrent branch.
+   */
+  protected forkCallbackQuery(
+    trigger: string | RegExp,
+    handler: (ctx: BotContext) => Promise<unknown> | void
+  ): Composer<BotContext> {
+    const branch = this._composer.fork();
+    branch.callbackQuery(trigger, async (ctx, next) => {
+      try {
+        await handler(ctx);
+      } catch (error) {
+        logger.error(
+          { err: error, module: this.id, trigger: String(trigger) },
+          'forked callback query error'
+        );
+      }
+      return next();
+    });
+    return branch;
   }
 }

@@ -23,6 +23,7 @@ describe('Deltax App - Module System & Event Handling', () => {
     assert.ok(content.includes('AiModule'), 'Should include AiModule');
     assert.ok(content.includes('StartModule'), 'Should include StartModule');
     assert.ok(content.includes('DownloaderModule'), 'Should include DownloaderModule');
+    assert.ok(content.includes('HelpModule'), 'Should include HelpModule');
     assert.ok(content.includes('WallpaperModule'), 'Should include WallpaperModule');
     assert.ok(content.includes('WebModule'), 'Should include WebModule');
     assert.ok(content.includes('PingModule'), 'Should include PingModule');
@@ -172,5 +173,63 @@ describe('Deltax App - Module System & Event Handling', () => {
 
     const normalEncoded = 'Hello &amp; welcome to &quot;Deltax&quot; &#064;channel';
     assert.equal(unescapeHtml(normalEncoded), 'Hello & welcome to "Deltax" @channel');
+  });
+
+  test('Composer fork executes concurrent branches in parallel alongside downstream middleware', async () => {
+    // Replicate grammY Composer fork behavior:
+    // this.use((ctx, next) => Promise.all([next(), run(fork, ctx)]));
+    class MockComposer {
+      constructor() {
+        this.middlewares = [];
+      }
+
+      use(...fn) {
+        this.middlewares.push(...fn);
+        return this;
+      }
+
+      fork(...fn) {
+        const branch = new MockComposer();
+        if (fn.length > 0) branch.use(...fn);
+        this.use(async (ctx, next) => {
+          return Promise.all([next(), branch.execute(ctx, async () => {})]);
+        });
+        return branch;
+      }
+
+      async execute(ctx, next) {
+        let index = -1;
+        const runner = async (i) => {
+          if (i <= index) throw new Error('next() called multiple times');
+          index = i;
+          const fn = this.middlewares[i];
+          if (!fn) return next();
+          return fn(ctx, () => runner(i + 1));
+        };
+        return runner(0);
+      }
+    }
+
+    const composer = new MockComposer();
+    const executionTimeline = [];
+
+    // Branch 1: Forked concurrent task (e.g. background telemetry or audit log)
+    composer.fork().use(async (_ctx, next) => {
+      await new Promise((r) => setTimeout(r, 15));
+      executionTimeline.push('forked_done');
+      return next();
+    });
+
+    // Branch 2: Downstream primary middleware (e.g. command response)
+    composer.use(async (_ctx, next) => {
+      executionTimeline.push('downstream_executed');
+      return next();
+    });
+
+    await composer.execute({}, async () => {});
+
+    // Downstream executed FIRST without being blocked by the 15ms async task in forked branch
+    assert.equal(executionTimeline[0], 'downstream_executed');
+    assert.equal(executionTimeline[1], 'forked_done');
   });
 });

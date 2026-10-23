@@ -72,16 +72,29 @@ export class ModuleManager {
     }
 
     try {
-      this._bot.use(module.getComposer());
+      if (module.forked) {
+        this._bot.fork().use(module.getComposer());
+        logger.info(
+          {
+            moduleId: module.id,
+            name: module.name || module.id,
+            version: module.version || '1.0.0',
+            forked: true,
+          },
+          'loaded forked module'
+        );
+      } else {
+        this._bot.use(module.getComposer());
+        logger.info(
+          {
+            moduleId: module.id,
+            name: module.name || module.id,
+            version: module.version || '1.0.0',
+          },
+          'loaded module'
+        );
+      }
       this._modules.set(module.id, module);
-      logger.info(
-        {
-          moduleId: module.id,
-          name: module.name || module.id,
-          version: module.version || '1.0.0',
-        },
-        'loaded module'
-      );
     } catch (err) {
       logger.error({ err, moduleId: module.id }, 'failed to mount composer for module');
     }

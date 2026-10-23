@@ -4,7 +4,8 @@
  * See LICENSE in the project root for license information.
  */
 
-import { Bot } from 'grammy';
+import type { Composer } from 'grammy';
+import { Bot, type MiddlewareFn } from 'grammy';
 import type { Update } from 'grammy/types';
 import { FormattedString } from '@grammyjs/parse-mode';
 import { ModuleManager, type ModuleConstructor } from './module_manager';
@@ -140,6 +141,10 @@ export class TelegramBotServer {
         description: m.description,
         version: m.version,
         commands: m.getCommands().map((c) => c.command),
+        commandDetails: m.getCommands().map((c) => ({
+          command: c.command,
+          description: c.description,
+        })),
       }));
 
       if (this._currentExecutionCtx) {
@@ -218,6 +223,14 @@ export class TelegramBotServer {
 
   public get bot(): Bot<BotContext> {
     return this._bot;
+  }
+
+  /**
+   * Registers concurrent middleware or returns a forked Composer branch
+   * that runs in parallel alongside downstream handlers.
+   */
+  public fork(...middleware: MiddlewareFn<BotContext>[]): Composer<BotContext> {
+    return this._bot.fork(...middleware);
   }
 
   public get moduleManager(): ModuleManager {

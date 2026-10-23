@@ -37,6 +37,7 @@ export interface ModuleInfo {
   description: string;
   version: string;
   commands: string[];
+  commandDetails?: Array<{ command: string; description: string }>;
 }
 
 export interface BotContext extends Context {

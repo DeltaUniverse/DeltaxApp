@@ -22,18 +22,24 @@ export class StartModule extends BaseModule {
 
         const message =
           `<b>Hey ${mention}!</b>\n\n` +
-          `Send a link from <b>Instagram</b>, <b>TikTok</b>, <b>Threads</b>, or <b>X</b> to download media.\n\n` +
+          `Welcome to <b>Delta</b> — modular serverless Telegram bot powered by Cloudflare Workers.\n\n` +
           `<blockquote expandable>` +
-          `<b>How to use:</b>\n` +
-          `• <b>Direct Chat:</b> Send any media link to this chat.\n` +
-          `• <b>Group Mention:</b> Mention the bot in any group:\n` +
-          `<code>@${botUsername} &lt;link&gt;</code>` +
+          `<b>Core Capabilities:</b>\n` +
+          `• <b>AI:</b> Conversational assistance and queries\n` +
+          `• <b>Downloader:</b> Instagram, TikTok, Threads, and X\n` +
+          `• <b>Web:</b> High-resolution page screenshots\n` +
+          `• <b>Wallpaper:</b> Ultra HD Bing photography\n` +
+          `• <b>Diagnostics:</b> Latency telemetry and health checks\n\n` +
+          `<b>Usage:</b>\n` +
+          `• Direct Chat: Send a media link or command directly.\n` +
+          `• Group Chat: Mention <code>@${botUsername} &lt;command/link&gt;</code>.\n` +
+          `• Tap <b>Help</b> below to inspect module commands.` +
           `</blockquote>`;
 
-        const keyboard = new InlineKeyboard().url(
-          'Catch me',
-          `https://t.me/${botUsername}?startgroup=new`
-        );
+        const keyboard = new InlineKeyboard()
+          .url('Catch me', `https://t.me/${botUsername}?startgroup=new`)
+          .row()
+          .text('Help', 'help:main');
 
         await ctx.respond(message, {
           reply_markup: keyboard,
@@ -57,20 +63,24 @@ export class StartModule extends BaseModule {
       const rawTitleName =
         caller?.first_name || (caller?.username ? `@${caller.username}` : 'there');
 
-      const keyboard = new InlineKeyboard().url('Catch me', `https://t.me/${botUsername}`);
+      const keyboard = new InlineKeyboard()
+        .url('Catch me', `https://t.me/${botUsername}`)
+        .row()
+        .text('Help', 'help:main');
 
       await ctx.answerGuestQuery({
         type: 'article',
         id: `guest_start_${Date.now()}`,
         title: `Hey ${rawTitleName}!`,
-        description: `Mention @${botUsername} <link> to download media`,
+        description: `Delta — Serverless Telegram Bot`,
         input_message_content: {
           message_text:
             `<b>Hey ${callerMention}!</b>\n\n` +
+            `Welcome to <b>Delta</b> — modular serverless assistant.\n\n` +
             `<blockquote expandable>` +
-            `Send or mention with a media link (Instagram, TikTok, Threads, X) to download.\n\n` +
-            `<b>Example:</b>\n` +
-            `<code>@${botUsername} &lt;link&gt;</code>` +
+            `<b>Capabilities:</b> AI, Media Downloader, Web Screenshots, Wallpapers, and Diagnostics.\n\n` +
+            `<b>Usage:</b>\n` +
+            `Mention <code>@${botUsername} &lt;command/link&gt;</code> in any chat or explore commands with <code>@${botUsername} /help</code>.` +
             `</blockquote>`,
           parse_mode: 'HTML',
         },
