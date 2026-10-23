@@ -201,8 +201,19 @@ export class HelpModule extends BaseModule {
       }
     );
 
-    this.callbackQuery(/^help:(main|page:(\d+))$/, async (ctx: BotContext) => {
+    // Concurrently answer callback queries for all help navigation buttons in parallel via fork
+    this.callbackQuery(/^help:(?!noop)/).fork(async (ctx: BotContext) => {
       await ctx.answerCallbackQuery().catch(() => {});
+    });
+
+    // Concurrently answer page indicator toasts via fork
+    this.callbackQuery(/^help:noop(?::(\d+):(\d+))?$/).fork(async (ctx: BotContext) => {
+      const match = ctx.callbackQuery?.data?.match(/^help:noop(?::(\d+):(\d+))?$/);
+      const text = match?.[1] && match?.[2] ? `Page ${match[1]} of ${match[2]}` : 'Current Page';
+      await ctx.answerCallbackQuery({ text }).catch(() => {});
+    });
+
+    this.callbackQuery(/^help:(main|page:(\d+))$/, async (ctx: BotContext) => {
       const isGuest = Boolean(ctx.callbackQuery?.inline_message_id || isGuestMode(ctx));
       const data = ctx.callbackQuery?.data || '';
       let targetPage = 1;
@@ -229,7 +240,6 @@ export class HelpModule extends BaseModule {
     });
 
     this.callbackQuery(/^help:mod:([^:]+)(?::(\d+))?$/, async (ctx: BotContext) => {
-      await ctx.answerCallbackQuery().catch(() => {});
       const isGuest = Boolean(ctx.callbackQuery?.inline_message_id || isGuestMode(ctx));
       const match = ctx.callbackQuery?.data?.match(/^help:mod:([^:]+)(?::(\d+))?$/);
       const modId = match?.[1]?.toLowerCase().trim();
@@ -261,35 +271,21 @@ export class HelpModule extends BaseModule {
         });
     });
 
-    this.callbackQuery(/^help:noop(?::(\d+):(\d+))?$/, async (ctx: BotContext) => {
-      const match = ctx.callbackQuery?.data?.match(/^help:noop(?::(\d+):(\d+))?$/);
-      const text = match?.[1] && match?.[2] ? `Page ${match[1]} of ${match[2]}` : 'Current Page';
-      await ctx.answerCallbackQuery({ text }).catch(() => {});
-    });
-
     this.callbackQuery('help:close', async (ctx: BotContext) => {
-      const answerPromise = ctx.answerCallbackQuery().catch(() => {});
-
       if (ctx.chatId && ctx.msg?.message_id) {
-        await Promise.all([
-          answerPromise,
-          ctx.deleteMessage().catch((err) => {
-            logger.warn({ err }, 'failed to delete help message');
-          }),
-        ]);
+        await ctx.deleteMessage().catch((err) => {
+          logger.warn({ err }, 'failed to delete help message');
+        });
         return;
       }
 
       // Fallback for inline messages (Telegram Bot API does not support deleting inline messages)
-      await Promise.all([
-        answerPromise,
-        ctx
-          .editMessageText('<i>Help closed.</i>', {
-            parse_mode: 'HTML',
-            reply_markup: undefined,
-          })
-          .catch(() => {}),
-      ]);
+      await ctx
+        .editMessageText('<i>Help closed.</i>', {
+          parse_mode: 'HTML',
+          reply_markup: undefined,
+        })
+        .catch(() => {});
     });
   }
 

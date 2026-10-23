@@ -120,9 +120,19 @@ export abstract class BaseModule {
   }
 
   protected callbackQuery(
+    trigger: string | RegExp
+  ): ReturnType<Composer<BotContext>['callbackQuery']>;
+  protected callbackQuery(
     trigger: string | RegExp,
     handler: (ctx: BotContext) => Promise<unknown> | void
-  ): this {
+  ): this;
+  protected callbackQuery(
+    trigger: string | RegExp,
+    handler?: (ctx: BotContext) => Promise<unknown> | void
+  ): this | ReturnType<Composer<BotContext>['callbackQuery']> {
+    if (!handler) {
+      return this._composer.callbackQuery(trigger);
+    }
     this._composer.callbackQuery(trigger, async (ctx) => {
       try {
         await handler(ctx);
