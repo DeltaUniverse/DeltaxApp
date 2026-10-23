@@ -12,12 +12,15 @@ import { logger } from '../utils';
 export const MODEL_PRIMARY = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 export const MODEL_FALLBACK = '@cf/meta/llama-3.1-8b-instruct-fp8';
 export const MAX_TOKENS = 100;
+export const MAX_TOKENS_FACTUAL = 150;
 export const TEMPERATURE = 0.8;
+export const TEMPERATURE_FACTUAL = 0.6;
 export const TOP_P = 0.9;
 export const REPETITION_PENALTY = 1.1;
 export const MAX_MESSAGE_LENGTH = 4000;
 export const AI_TIMEOUT_MS = 30000;
-export const CACHE_VERSION = 'v4';
+export const WEB_SEARCH_TIMEOUT_MS = 3000;
+export const CACHE_VERSION = 'v5';
 export const CACHE_TTL_SECONDS = 3600;
 export const USER_COOLDOWN_MS = 3000;
 export const DRAFT_THROTTLE_MS = 350;
@@ -39,11 +42,119 @@ export const FEW_SHOT_EXAMPLES: AiChatMessage[] = [
     role: 'assistant',
     content: 'Kalo lagi mager mending nonton sih, tapi kalo ada duit gas nongkrong.',
   },
-  { role: 'user', content: 'eh anw lo tau drama netizen kemarin ga?' },
-  { role: 'assistant', content: 'Tau dong, asli timeline rame parah gara-gara itu wkwk.' },
-  { role: 'user', content: 'spill tea dong' },
-  { role: 'assistant', content: 'Gas, jadi ceritanya si itu kemarin kegep cuy wkwk.' },
+  { role: 'user', content: 'lo tau si Farhan anak Jaksel yang kemarin viral ga?' },
+  { role: 'assistant', content: 'Wah gw kurang tau nih, takutnya salah orang.' },
+  { role: 'user', content: 'eh tadi sore ada rame-rame apa di stasiun manggarai?' },
+  { role: 'assistant', content: 'Waduh belum update infonya nih, ga berani nebak-nebak gw.' },
+  { role: 'user', content: 'lah kok gitu' },
+  { role: 'assistant', content: 'Eh sori bray, bener lo. Tadi gw keliru, makasih udah ngingetin.' },
 ];
+
+export interface WebSearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+export interface AiExecutionOptions {
+  gatewayId?: string;
+  skipCache?: boolean;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  repetitionPenalty?: number;
+  isFactual?: boolean;
+}
+
+export function isFactualQuestion(text: string): boolean {
+  if (!text) return false;
+  const trimmed = text.trim().toLowerCase();
+  if (!trimmed) return false;
+
+  const patterns = [
+    /\b(siapa|siapakah)\b/i,
+    /\bapa\s+(itu|maksudnya|artinya)\b/i,
+    /\b(kapan|kapankah)\b/i,
+    /\b(dimana|di\s+mana)\b/i,
+    /\b(berapa|berapakah)\b/i,
+    /\b(kenapa|mengapa)\b/i,
+    /\b(gimana|bagaimana)\b/i,
+    /\b(kalo|kalau)\b.+\bsiapa\b/i,
+  ];
+
+  return patterns.some((pattern) => pattern.test(trimmed));
+}
+
+export function buildSearchResultsMessage(results: WebSearchResult[]): AiChatMessage | null {
+  if (!results || results.length === 0) return null;
+
+  const snippets = results
+    .slice(0, 5)
+    .map((r, i) => {
+      const parts: string[] = [];
+      if (r.title) parts.push(`Title: ${r.title}`);
+      if (r.snippet) parts.push(`Snippet: ${r.snippet}`);
+      if (r.url) parts.push(`URL: ${r.url}`);
+      return `[${i + 1}] ${parts.join('\n')}`;
+    })
+    .join('\n\n');
+
+  const content =
+    `Web search results:\n${snippets}\n\n` +
+    `Use only these search results to answer factual questions. Do not echo or include URLs in your reply unless explicitly asked.`;
+
+  return { role: 'system', content };
+}
+
+export async function fetchWebSearchResults(
+  ai: NonNullable<Env['AI']>,
+  query: string,
+  gatewayId = 'default'
+): Promise<WebSearchResult[]> {
+  if (typeof ai.websearch !== 'function') {
+    return [];
+  }
+
+  try {
+    const searchPromise = ai.websearch({
+      gatewayId,
+      query,
+      limit: 5,
+    });
+
+    const res = await runWithTimeout(searchPromise, WEB_SEARCH_TIMEOUT_MS);
+    if (!res) return [];
+
+    let data: {
+      results?: Array<{
+        title?: string;
+        url?: string;
+        description?: string;
+        snippet?: string;
+      }>;
+    };
+
+    if (typeof res.json === 'function') {
+      if (!res.ok) return [];
+      data = await res.json<typeof data>();
+    } else {
+      data = res as unknown as typeof data;
+    }
+
+    if (!Array.isArray(data?.results)) {
+      return [];
+    }
+
+    return data.results.slice(0, 5).map((item) => ({
+      title: (item.title || '').trim(),
+      url: (item.url || '').trim(),
+      snippet: (item.description || item.snippet || '').trim().slice(0, 300),
+    }));
+  } catch (err) {
+    logger.warn({ err }, 'web search failed or timed out');
+    return [];
+  }
+}
 
 interface CacheEntry {
   text: string;
@@ -197,7 +308,8 @@ export function buildAiMessages(
   query: string,
   replyText?: string | null,
   botName = 'Delta',
-  history?: AiChatMessage[]
+  history?: AiChatMessage[],
+  searchResults?: WebSearchResult[]
 ): AiChatMessage[] {
   const name = botName.trim() || 'Delta';
   const systemPrompt =
@@ -205,7 +317,8 @@ export function buildAiMessages(
     `Gunakan bahasa Indonesia kasual ala anak Jaksel atau Gen Z sesuai gaya lawan bicara.\n` +
     `Jawab super singkat (1-2 kalimat saja), santai layaknya chat WhatsApp.\n` +
     `Langsung ke inti obrolan tanpa pembuka kaku atau basa-basi robotik.\n` +
-    `Jangan gunakan format list ataupun markdown.`;
+    `Jangan gunakan format list ataupun markdown.\n` +
+    `Stay casual, but never invent facts. If you're not sure about a person, event, or recent news, say so in casual Indonesian (e.g. 'wah gw kurang tau nih, takutnya salah') instead of guessing. Never agree with a wrong claim just to match the vibe. If search results are provided, answer only from them.`;
 
   const conversationTurns: AiChatMessage[] = [];
   if (history && history.length > 0) {
@@ -235,7 +348,14 @@ export function buildAiMessages(
   // Trim conversation history to the last ~10 messages
   const trimmedHistory = conversationTurns.slice(-10);
 
-  return [{ role: 'system', content: systemPrompt }, ...FEW_SHOT_EXAMPLES, ...trimmedHistory];
+  const searchMessage = searchResults ? buildSearchResultsMessage(searchResults) : null;
+
+  return [
+    { role: 'system', content: systemPrompt },
+    ...FEW_SHOT_EXAMPLES,
+    ...(searchMessage ? [searchMessage] : []),
+    ...trimmedHistory,
+  ];
 }
 
 export async function computeAiCacheKey(model: string, messages: AiChatMessage[]): Promise<string> {
@@ -278,7 +398,7 @@ export async function streamAiCompletion(
   ai: NonNullable<Env['AI']>,
   messages: AiChatMessage[],
   onChunk: (partialText: string) => Promise<void> | void,
-  options?: { gatewayId?: string; skipCache?: boolean }
+  options?: AiExecutionOptions
 ): Promise<string> {
   const aiOptions = options?.gatewayId
     ? {
@@ -290,15 +410,21 @@ export async function streamAiCompletion(
       }
     : undefined;
 
+  const temperature =
+    options?.temperature ?? (options?.isFactual ? TEMPERATURE_FACTUAL : TEMPERATURE);
+  const maxTokens = options?.maxTokens ?? (options?.isFactual ? MAX_TOKENS_FACTUAL : MAX_TOKENS);
+  const topP = options?.topP ?? TOP_P;
+  const repetitionPenalty = options?.repetitionPenalty ?? REPETITION_PENALTY;
+
   const stream = (await runWithTimeout(
     ai.run(
       MODEL_PRIMARY,
       {
         messages,
-        max_tokens: MAX_TOKENS,
-        temperature: TEMPERATURE,
-        top_p: TOP_P,
-        repetition_penalty: REPETITION_PENALTY,
+        max_tokens: maxTokens,
+        temperature,
+        top_p: topP,
+        repetition_penalty: repetitionPenalty,
         stream: true,
       },
       aiOptions
@@ -347,7 +473,7 @@ export async function streamAiCompletion(
 export async function requestAiCompletion(
   ai: NonNullable<Env['AI']>,
   messages: AiChatMessage[],
-  options?: { gatewayId?: string; skipCache?: boolean }
+  options?: AiExecutionOptions
 ): Promise<{ text: string; isFallback: boolean }> {
   const aiOptions = options?.gatewayId
     ? {
@@ -359,16 +485,22 @@ export async function requestAiCompletion(
       }
     : undefined;
 
+  const temperature =
+    options?.temperature ?? (options?.isFactual ? TEMPERATURE_FACTUAL : TEMPERATURE);
+  const maxTokens = options?.maxTokens ?? (options?.isFactual ? MAX_TOKENS_FACTUAL : MAX_TOKENS);
+  const topP = options?.topP ?? TOP_P;
+  const repetitionPenalty = options?.repetitionPenalty ?? REPETITION_PENALTY;
+
   try {
     const result = (await runWithTimeout(
       ai.run(
         MODEL_PRIMARY,
         {
           messages,
-          max_tokens: MAX_TOKENS,
-          temperature: TEMPERATURE,
-          top_p: TOP_P,
-          repetition_penalty: REPETITION_PENALTY,
+          max_tokens: maxTokens,
+          temperature,
+          top_p: topP,
+          repetition_penalty: repetitionPenalty,
         },
         aiOptions
       ),
@@ -402,10 +534,10 @@ export async function requestAiCompletion(
       MODEL_FALLBACK,
       {
         messages,
-        max_tokens: MAX_TOKENS,
-        temperature: TEMPERATURE,
-        top_p: TOP_P,
-        repetition_penalty: REPETITION_PENALTY,
+        max_tokens: maxTokens,
+        temperature,
+        top_p: topP,
+        repetition_penalty: repetitionPenalty,
       },
       aiOptions
     ),
@@ -486,7 +618,17 @@ export class AiModule extends BaseModule {
           [ctx.me?.first_name, ctx.me?.last_name].filter(Boolean).join(' ') ||
           ctx.me?.username ||
           'Delta';
-        const messages = buildAiMessages(rawQuery, replyText, botName);
+
+        const gatewayId = (ctx.env.AI_GATEWAY_ID || ctx.env.AI_GATEWAY || 'default') as string;
+        const targetText = rawQuery || replyText;
+        const isFactual = isFactualQuestion(targetText);
+
+        let searchResults: WebSearchResult[] = [];
+        if (isFactual) {
+          searchResults = await fetchWebSearchResults(ctx.env.AI, targetText, gatewayId);
+        }
+
+        const messages = buildAiMessages(rawQuery, replyText, botName, undefined, searchResults);
         const cacheKey = await computeAiCacheKey(MODEL_PRIMARY, messages);
 
         let cachedMarkdown: string | null = null;
@@ -510,8 +652,12 @@ export class AiModule extends BaseModule {
         let rawMarkdown = cachedMarkdown;
 
         if (!rawMarkdown) {
-          const gatewayId = (ctx.env.AI_GATEWAY_ID || ctx.env.AI_GATEWAY) as string | undefined;
           let isFallbackModel = false;
+          const execOptions: AiExecutionOptions = {
+            gatewayId,
+            skipCache: isFresh,
+            isFactual,
+          };
 
           if (isPrivateChat) {
             let lastDraftTime = 0;
@@ -528,7 +674,7 @@ export class AiModule extends BaseModule {
                     }
                   }
                 },
-                { gatewayId, skipCache: isFresh }
+                execOptions
               );
             } catch (streamErr) {
               logger.warn(
@@ -540,10 +686,7 @@ export class AiModule extends BaseModule {
 
           if (!rawMarkdown) {
             try {
-              const completion = await requestAiCompletion(ctx.env.AI, messages, {
-                gatewayId,
-                skipCache: isFresh,
-              });
+              const completion = await requestAiCompletion(ctx.env.AI, messages, execOptions);
               rawMarkdown = completion.text;
               isFallbackModel = completion.isFallback;
             } catch (execErr) {

@@ -161,20 +161,63 @@ const FEW_SHOT_EXAMPLES = [
     role: 'assistant',
     content: 'Kalo lagi mager mending nonton sih, tapi kalo ada duit gas nongkrong.',
   },
-  { role: 'user', content: 'eh anw lo tau drama netizen kemarin ga?' },
-  { role: 'assistant', content: 'Tau dong, asli timeline rame parah gara-gara itu wkwk.' },
-  { role: 'user', content: 'spill tea dong' },
-  { role: 'assistant', content: 'Gas, jadi ceritanya si itu kemarin kegep cuy wkwk.' },
+  { role: 'user', content: 'lo tau si Farhan anak Jaksel yang kemarin viral ga?' },
+  { role: 'assistant', content: 'Wah gw kurang tau nih, takutnya salah orang.' },
+  { role: 'user', content: 'eh tadi sore ada rame-rame apa di stasiun manggarai?' },
+  { role: 'assistant', content: 'Waduh belum update infonya nih, ga berani nebak-nebak gw.' },
+  { role: 'user', content: 'lah kok gitu' },
+  { role: 'assistant', content: 'Eh sori bray, bener lo. Tadi gw keliru, makasih udah ngingetin.' },
 ];
 
-function buildAiMessages(query, replyText, botName = 'Delta', history) {
+function isFactualQuestion(text) {
+  if (!text) return false;
+  const trimmed = text.trim().toLowerCase();
+  if (!trimmed) return false;
+
+  const patterns = [
+    /\b(siapa|siapakah)\b/i,
+    /\bapa\s+(itu|maksudnya|artinya)\b/i,
+    /\b(kapan|kapankah)\b/i,
+    /\b(dimana|di\s+mana)\b/i,
+    /\b(berapa|berapakah)\b/i,
+    /\b(kenapa|mengapa)\b/i,
+    /\b(gimana|bagaimana)\b/i,
+    /\b(kalo|kalau)\b.+\bsiapa\b/i,
+  ];
+
+  return patterns.some((pattern) => pattern.test(trimmed));
+}
+
+function buildSearchResultsMessage(results) {
+  if (!results || results.length === 0) return null;
+
+  const snippets = results
+    .slice(0, 5)
+    .map((r, i) => {
+      const parts = [];
+      if (r.title) parts.push(`Title: ${r.title}`);
+      if (r.snippet) parts.push(`Snippet: ${r.snippet}`);
+      if (r.url) parts.push(`URL: ${r.url}`);
+      return `[${i + 1}] ${parts.join('\n')}`;
+    })
+    .join('\n\n');
+
+  const content =
+    `Web search results:\n${snippets}\n\n` +
+    `Use only these search results to answer factual questions. Do not echo or include URLs in your reply unless explicitly asked.`;
+
+  return { role: 'system', content };
+}
+
+function buildAiMessages(query, replyText, botName = 'Delta', history, searchResults) {
   const name = botName.trim() || 'Delta';
   const systemPrompt =
     `Kamu adalah ${name}, teman ngobrol akrab yang santai banget.\n` +
     `Gunakan bahasa Indonesia kasual ala anak Jaksel atau Gen Z sesuai gaya lawan bicara.\n` +
     `Jawab super singkat (1-2 kalimat saja), santai layaknya chat WhatsApp.\n` +
     `Langsung ke inti obrolan tanpa pembuka kaku atau basa-basi robotik.\n` +
-    `Jangan gunakan format list ataupun markdown.`;
+    `Jangan gunakan format list ataupun markdown.\n` +
+    `Stay casual, but never invent facts. If you're not sure about a person, event, or recent news, say so in casual Indonesian (e.g. 'wah gw kurang tau nih, takutnya salah') instead of guessing. Never agree with a wrong claim just to match the vibe. If search results are provided, answer only from them.`;
 
   const conversationTurns = [];
   if (history && history.length > 0) {
@@ -202,8 +245,14 @@ function buildAiMessages(query, replyText, botName = 'Delta', history) {
   }
 
   const trimmedHistory = conversationTurns.slice(-10);
+  const searchMessage = searchResults ? buildSearchResultsMessage(searchResults) : null;
 
-  return [{ role: 'system', content: systemPrompt }, ...FEW_SHOT_EXAMPLES, ...trimmedHistory];
+  return [
+    { role: 'system', content: systemPrompt },
+    ...FEW_SHOT_EXAMPLES,
+    ...(searchMessage ? [searchMessage] : []),
+    ...trimmedHistory,
+  ];
 }
 
 async function computeAiCacheKey(model, messages) {
@@ -215,7 +264,7 @@ async function computeAiCacheKey(model, messages) {
   const hex = Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
-  return `ai:v4:${hex}`;
+  return `ai:v5:${hex}`;
 }
 
 describe('Deltax App - Workers AI Module & Utilities', () => {
@@ -318,19 +367,43 @@ describe('Deltax App - Workers AI Module & Utilities', () => {
     });
   });
 
+  describe('isFactualQuestion helper', () => {
+    test('identifies factual questions correctly', () => {
+      assert.equal(isFactualQuestion('kalo bahlil siapa?'), true);
+      assert.equal(isFactualQuestion('siapa jokowi?'), true);
+      assert.equal(isFactualQuestion('apa itu cloudflare workers?'), true);
+      assert.equal(isFactualQuestion('kapan indonesia merdeka?'), true);
+      assert.equal(isFactualQuestion('dimana letak monas?'), true);
+      assert.equal(isFactualQuestion('berapa harga btc sekarang?'), true);
+      assert.equal(isFactualQuestion('kenapa langit biru?'), true);
+      assert.equal(isFactualQuestion('gimana cara membuat website?'), true);
+      assert.equal(isFactualQuestion('kalo prabowo siapa ya'), true);
+    });
+
+    test('returns false for small talk and casual conversation', () => {
+      assert.equal(isFactualQuestion('halo'), false);
+      assert.equal(isFactualQuestion('lagi gabut nih'), false);
+      assert.equal(isFactualQuestion('lah kok gitu'), false);
+      assert.equal(isFactualQuestion('yo bray'), false);
+      assert.equal(isFactualQuestion('capek banget hari ini'), false);
+      assert.equal(isFactualQuestion(''), false);
+    });
+  });
+
   describe('buildAiMessages', () => {
     test('builds single query prompt with system instruction and few-shots', () => {
       const msgs = buildAiMessages('What is Workers AI?', null, 'Luna');
-      assert.equal(msgs.length, 14);
+      assert.equal(msgs.length, 16);
       assert.equal(msgs[0].role, 'system');
       assert.ok(msgs[0].content.includes('Kamu adalah Luna'));
+      assert.ok(msgs[0].content.includes('Stay casual, but never invent facts'));
       assert.equal(msgs[msgs.length - 1].role, 'user');
       assert.equal(msgs[msgs.length - 1].content, 'What is Workers AI?');
     });
 
     test('combines replied context with user query', () => {
       const msgs = buildAiMessages('Explain this code', 'function foo() { return 42; }');
-      assert.equal(msgs.length, 14);
+      assert.equal(msgs.length, 16);
       assert.ok(msgs[msgs.length - 1].content.includes('Context dari chat sebelumnya:'));
       assert.ok(msgs[msgs.length - 1].content.includes('function foo() { return 42; }'));
       assert.ok(msgs[msgs.length - 1].content.includes('Explain this code'));
@@ -338,8 +411,27 @@ describe('Deltax App - Workers AI Module & Utilities', () => {
 
     test('uses replied text directly if query is empty', () => {
       const msgs = buildAiMessages('', 'Summarize this long article');
-      assert.equal(msgs.length, 14);
+      assert.equal(msgs.length, 16);
       assert.equal(msgs[msgs.length - 1].content, 'Summarize this long article');
+    });
+
+    test('injects web search results into messages when provided', () => {
+      const searchResults = [
+        {
+          title: 'Bahlil Lahadalia - Profil',
+          snippet:
+            'Bahlil Lahadalia adalah politikus dan pengusaha Indonesia yang menjabat sebagai Menteri ESDM.',
+          url: 'https://id.wikipedia.org/wiki/Bahlil_Lahadalia',
+        },
+      ];
+      const msgs = buildAiMessages('kalo bahlil siapa?', null, 'Delta', undefined, searchResults);
+      assert.equal(msgs.length, 17);
+      const searchMsg = msgs.find(
+        (m) => m.role === 'system' && m.content.includes('Web search results:')
+      );
+      assert.ok(searchMsg);
+      assert.ok(searchMsg.content.includes('Bahlil Lahadalia'));
+      assert.ok(searchMsg.content.includes('Do not echo or include URLs'));
     });
   });
 
@@ -363,18 +455,20 @@ describe('Deltax App - Workers AI Module & Utilities', () => {
       assert.equal(response, 'Workers AI Unavailable');
     });
 
-    test('invokes AI.run and parses response text', async () => {
+    test('invokes AI.run and parses response text with factual parameters', async () => {
       let modelUsed = '';
+      let receivedParams = null;
       let sentText = '';
       const mockAi = {
         run: async (model, input) => {
           modelUsed = model;
-          return { response: `Answer to: ${input.messages[input.messages.length - 1].content}` };
+          receivedParams = input;
+          return { response: `Bahlil Lahadalia adalah politikus Indonesia.` };
         },
       };
 
       const ctx = {
-        input: 'What is 2+2?',
+        input: 'kalo bahlil siapa?',
         replyMsg: null,
         prefix: '/',
         env: { AI: mockAi },
@@ -383,14 +477,23 @@ describe('Deltax App - Workers AI Module & Utilities', () => {
         },
       };
 
+      const isFactual = isFactualQuestion(ctx.input);
+      assert.equal(isFactual, true);
+
       const msgs = buildAiMessages(ctx.input, null);
       const res = await ctx.env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
         messages: msgs,
+        temperature: isFactual ? 0.6 : 0.8,
+        max_tokens: isFactual ? 150 : 100,
+        top_p: 0.9,
+        repetition_penalty: 1.1,
       });
       await ctx.respond(formatMarkdownToTelegramHtml(res.response));
 
       assert.equal(modelUsed, '@cf/meta/llama-3.3-70b-instruct-fp8-fast');
-      assert.equal(sentText, 'Answer to: What is 2+2?');
+      assert.equal(receivedParams.temperature, 0.6);
+      assert.equal(receivedParams.max_tokens, 150);
+      assert.equal(sentText, 'Bahlil Lahadalia adalah politikus Indonesia.');
     });
 
     test('computes cache key normalizing whitespace while preserving casing', async () => {
@@ -404,7 +507,7 @@ describe('Deltax App - Workers AI Module & Utilities', () => {
 
       assert.equal(key1, key2, 'Whitespace normalization should produce identical cache key');
       assert.notEqual(key1, key3, 'Casing should be preserved in cache key calculation');
-      assert.ok(key1.startsWith('ai:v4:'));
+      assert.ok(key1.startsWith('ai:v5:'));
     });
 
     test('unescapeHtml converts entities back to characters in plain text fallback', () => {
@@ -460,6 +563,58 @@ describe('Deltax App - Workers AI Module & Utilities', () => {
 
       assert.equal(isCoolingDown(userId), true);
       assert.equal(isCoolingDown(99999), false);
+    });
+
+    test('verifies "halo", "lagi gabut nih", "kalo bahlil siapa?", and follow-up "lah kok gitu"', async () => {
+      // 1. "halo" -> small talk, no search, temperature 0.8, max_tokens 100
+      assert.equal(isFactualQuestion('halo'), false);
+      const msgsHalo = buildAiMessages('halo');
+      assert.equal(msgsHalo.filter((m) => m.content.includes('Web search results')).length, 0);
+
+      // 2. "lagi gabut nih" -> small talk, no search, temperature 0.8, max_tokens 100
+      assert.equal(isFactualQuestion('lagi gabut nih'), false);
+      const msgsGabut = buildAiMessages('lagi gabut nih');
+      assert.equal(msgsGabut.filter((m) => m.content.includes('Web search results')).length, 0);
+
+      // 3. "kalo bahlil siapa?" -> factual question, search enabled, temperature 0.6, max_tokens 150
+      assert.equal(isFactualQuestion('kalo bahlil siapa?'), true);
+      const mockWebSearchResults = [
+        {
+          title: 'Bahlil Lahadalia - Profil Tokoh',
+          snippet:
+            'Bahlil Lahadalia adalah seorang pengusaha dan politikus Indonesia yang menjabat sebagai Menteri Energi dan Sumber Daya Mineral (ESDM).',
+          url: 'https://id.wikipedia.org/wiki/Bahlil_Lahadalia',
+        },
+      ];
+      const msgsBahlil = buildAiMessages(
+        'kalo bahlil siapa?',
+        null,
+        'Delta',
+        undefined,
+        mockWebSearchResults
+      );
+      const searchCtxMsg = msgsBahlil.find(
+        (m) => m.role === 'system' && m.content.includes('Web search results:')
+      );
+      assert.ok(searchCtxMsg);
+      assert.ok(searchCtxMsg.content.includes('Bahlil Lahadalia'));
+      assert.ok(searchCtxMsg.content.includes('politikus Indonesia'));
+      assert.ok(searchCtxMsg.content.includes('Menteri Energi dan Sumber Daya Mineral'));
+      assert.ok(searchCtxMsg.content.includes('Do not echo or include URLs'));
+
+      // 4. Follow-up "lah kok gitu" -> small talk pushback, no search, model self-corrects based on few-shot demonstrations
+      assert.equal(isFactualQuestion('lah kok gitu'), false);
+      const historyFollowUp = [
+        { role: 'user', content: 'kalo bahlil siapa?' },
+        {
+          role: 'assistant',
+          content:
+            'Bahlil itu Bahlil Lahadalia, politisi dan pengusaha yang sekarang jadi Menteri ESDM.',
+        },
+      ];
+      const msgsFollowUp = buildAiMessages('lah kok gitu', null, 'Delta', historyFollowUp);
+      assert.equal(msgsFollowUp.filter((m) => m.content.includes('Web search results')).length, 0);
+      assert.equal(msgsFollowUp[msgsFollowUp.length - 1].content, 'lah kok gitu');
     });
   });
 });
