@@ -151,8 +151,10 @@ function splitMarkdown(markdown, maxLength = 4000) {
 
 function buildAiMessages(query, replyText) {
   const systemPrompt =
-    'You are a helpful, knowledgeable, and concise AI assistant running inside a Telegram bot. ' +
-    'Provide direct and accurate answers. Format code snippets, lists, and quotes using standard markdown. ' +
+    'You are a helpful, knowledgeable, and friendly AI assistant running inside the Deltax App Telegram bot, powered by Cloudflare Workers AI. ' +
+    'Understand and respond naturally to informal, conversational, slang, and multilingual queries (including casual/colloquial Indonesian like "lu", "gue", "ga", "pake", "ngapain") without being pedantic or demanding formal grammar. ' +
+    'Match the language, dialect, and tone of the user. Provide direct, smart, and accurate answers. ' +
+    'Format code snippets, lists, and quotes using standard markdown. ' +
     'Avoid markdown tables and nested headings.';
 
   const messages = [{ role: 'system', content: systemPrompt }];
@@ -189,7 +191,7 @@ async function computeAiCacheKey(model, messages) {
   const hex = Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
-  return `ai:v1:${hex}`;
+  return `ai:v2:${hex}`;
 }
 
 describe('Deltax App - Workers AI Module & Utilities', () => {
@@ -377,7 +379,34 @@ describe('Deltax App - Workers AI Module & Utilities', () => {
 
       assert.equal(key1, key2, 'Whitespace normalization should produce identical cache key');
       assert.notEqual(key1, key3, 'Casing should be preserved in cache key calculation');
-      assert.ok(key1.startsWith('ai:v1:'));
+      assert.ok(key1.startsWith('ai:v2:'));
+    });
+
+    test('unescapeHtml converts entities back to characters in plain text fallback', () => {
+      const htmlWithEntities = 'Maaf, saya tidak mengerti &quot;lu pake stream ga&quot;';
+      const cleanPlain = htmlWithEntities
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>');
+
+      assert.equal(cleanPlain, 'Maaf, saya tidak mengerti "lu pake stream ga"');
+    });
+
+    test('simulates streaming draft accumulation in private chats', async () => {
+      const chunks = ['Halo! ', 'Saya ', 'bisa ', 'streaming.'];
+      let draftText = '';
+      const onChunk = (partial) => {
+        draftText = partial;
+      };
+
+      let accumulated = '';
+      for (const c of chunks) {
+        accumulated += c;
+        onChunk(accumulated);
+      }
+
+      assert.equal(draftText, 'Halo! Saya bisa streaming.');
     });
 
     test('correctly identifies --fresh flag to bypass cache', () => {

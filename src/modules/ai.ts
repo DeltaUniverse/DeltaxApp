@@ -5,7 +5,7 @@
  */
 
 import { BaseModule, type CommandContext } from '../core';
-import { escapeHtml, stripHtml } from '../html';
+import { escapeHtml, stripHtml, unescapeHtml } from '../html';
 import type { Env } from '../types';
 import { logger } from '../utils';
 
@@ -14,9 +14,10 @@ export const MODEL_FALLBACK = '@cf/meta/llama-3.1-8b-instruct-fp8';
 export const MAX_TOKENS = 2048;
 export const MAX_MESSAGE_LENGTH = 4000;
 export const AI_TIMEOUT_MS = 30000;
-export const CACHE_VERSION = 'v1';
+export const CACHE_VERSION = 'v2';
 export const CACHE_TTL_SECONDS = 3600;
 export const USER_COOLDOWN_MS = 3000;
+export const DRAFT_THROTTLE_MS = 350;
 
 export interface AiChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -173,8 +174,10 @@ export function splitMarkdown(markdown: string, maxLength = MAX_MESSAGE_LENGTH):
 
 export function buildAiMessages(query: string, replyText?: string | null): AiChatMessage[] {
   const systemPrompt =
-    'You are a helpful, knowledgeable, and concise AI assistant running inside a Telegram bot. ' +
-    'Provide direct and accurate answers. Format code snippets, lists, and quotes using standard markdown. ' +
+    'You are a helpful, knowledgeable, and friendly AI assistant running inside the Deltax App Telegram bot, powered by Cloudflare Workers AI. ' +
+    'Understand and respond naturally to informal, conversational, slang, and multilingual queries (including casual/colloquial Indonesian like "lu", "gue", "ga", "pake", "ngapain") without being pedantic or demanding formal grammar. ' +
+    'Match the language, dialect, and tone of the user. Provide direct, smart, and accurate answers. ' +
+    'Format code snippets, lists, and quotes using standard markdown. ' +
     'Avoid markdown tables and nested headings.';
 
   const messages: AiChatMessage[] = [{ role: 'system', content: systemPrompt }];
@@ -236,6 +239,65 @@ async function runWithTimeout<T>(promise: Promise<T>, timeoutMs: number): Promis
   } finally {
     if (timer) clearTimeout(timer);
   }
+}
+
+export async function streamAiCompletion(
+  ai: NonNullable<Env['AI']>,
+  messages: AiChatMessage[],
+  onChunk: (partialText: string) => Promise<void> | void,
+  options?: { gatewayId?: string; skipCache?: boolean }
+): Promise<string> {
+  const aiOptions = options?.gatewayId
+    ? {
+        gateway: {
+          id: options.gatewayId,
+          cacheTtl: CACHE_TTL_SECONDS,
+          skipCache: options.skipCache,
+        },
+      }
+    : undefined;
+
+  const stream = (await runWithTimeout(
+    ai.run(MODEL_PRIMARY, { messages, max_tokens: MAX_TOKENS, stream: true }, aiOptions),
+    AI_TIMEOUT_MS
+  )) as ReadableStream<Uint8Array>;
+
+  let accumulated = '';
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data:')) continue;
+        const dataStr = trimmed.slice(5).trim();
+        if (dataStr === '[DONE]') break;
+
+        try {
+          const parsed = JSON.parse(dataStr) as { response?: string };
+          if (parsed.response) {
+            accumulated += parsed.response;
+            await onChunk(accumulated);
+          }
+        } catch {
+          // ignore malformed SSE line
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return accumulated.trim();
 }
 
 export async function requestAiCompletion(
@@ -376,22 +438,53 @@ export class AiModule extends BaseModule {
           }
         }
 
+        const isPrivateChat = !ctx.isGuest && ctx.chat?.type === 'private';
         let rawMarkdown = cachedMarkdown;
 
         if (!rawMarkdown) {
           const gatewayId = (ctx.env.AI_GATEWAY_ID || ctx.env.AI_GATEWAY) as string | undefined;
-          let isFallbackModel: boolean;
-          try {
-            const completion = await requestAiCompletion(ctx.env.AI, messages, {
-              gatewayId,
-              skipCache: isFresh,
-            });
-            rawMarkdown = completion.text;
-            isFallbackModel = completion.isFallback;
-          } catch (execErr) {
-            logger.error({ err: execErr }, 'workers ai execution failed');
-            await ctx.respond('⚠️ An error occurred while generating a response from Workers AI.');
-            return;
+          let isFallbackModel = false;
+
+          if (isPrivateChat) {
+            let lastDraftTime = 0;
+            try {
+              rawMarkdown = await streamAiCompletion(
+                ctx.env.AI,
+                messages,
+                async (partial) => {
+                  const now = Date.now();
+                  if (now - lastDraftTime >= DRAFT_THROTTLE_MS && partial.length > 5) {
+                    lastDraftTime = now;
+                    if (typeof ctx.replyWithDraft === 'function') {
+                      await ctx.replyWithDraft(partial).catch(() => {});
+                    }
+                  }
+                },
+                { gatewayId, skipCache: isFresh }
+              );
+            } catch (streamErr) {
+              logger.warn(
+                { err: streamErr },
+                'streaming ai completion failed, falling back to standard execution'
+              );
+            }
+          }
+
+          if (!rawMarkdown) {
+            try {
+              const completion = await requestAiCompletion(ctx.env.AI, messages, {
+                gatewayId,
+                skipCache: isFresh,
+              });
+              rawMarkdown = completion.text;
+              isFallbackModel = completion.isFallback;
+            } catch (execErr) {
+              logger.error({ err: execErr }, 'workers ai execution failed');
+              await ctx.respond(
+                '⚠️ An error occurred while generating a response from Workers AI.'
+              );
+              return;
+            }
           }
 
           if (callerId && !ctx.isOwner) {
@@ -436,7 +529,7 @@ export class AiModule extends BaseModule {
                 { err: sendErr },
                 'failed to send formatted ai response, falling back to plain text'
               );
-              const plain = stripHtml(formatted);
+              const plain = unescapeHtml(stripHtml(formatted));
               await ctx.respond(plain, { parse_mode: undefined });
             } else {
               throw sendErr;
