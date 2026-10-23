@@ -7,7 +7,7 @@
 import { InlineKeyboard } from 'grammy';
 import { BaseModule, type CommandContext } from '../core';
 import { escapeHtml } from '../html';
-import { getChatId, isGuestMode } from '../utils';
+import { getChatId, isGuestMode, logger } from '../utils';
 
 const BING_BASE_URL = 'https://www.bing.com';
 const BING_API_URL = 'https://www.bing.com/HPImageArchive.aspx?format=js';
@@ -295,7 +295,7 @@ export class WallpaperModule extends BaseModule {
             index: options.index,
           });
         } catch (err) {
-          console.error('[WallpaperModule] Failed to fetch Bing wallpaper:', err);
+          logger.error({ err }, 'failed to fetch bing wallpaper');
           await ctx.respond('❌ <b>Failed to fetch Bing wallpaper.</b>\n\nPlease try again later.');
           return;
         }
@@ -362,7 +362,7 @@ export class WallpaperModule extends BaseModule {
             reply_parameters: replyMessageId ? { message_id: replyMessageId } : undefined,
           });
         } catch (sendErr) {
-          console.warn('[WallpaperModule] Failed to send photo directly, falling back:', sendErr);
+          logger.warn({ err: sendErr }, 'failed to send photo directly, falling back to text');
           const fallbackText =
             `🖼️ <b>${escapeHtml(data.title)}</b>\n\n` +
             `<blockquote expandable>` +

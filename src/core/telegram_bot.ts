@@ -16,6 +16,7 @@ import { isGuestMode } from '../utils/telegram';
 import type { BaseModule } from './base_module';
 import type { BotContext, Env } from '../types';
 import { ROUTES, BOT_CONFIG, HTTP_HEADERS } from '../config';
+import { logger } from '../utils';
 
 export const GUEST_FOOTER =
   '<blockquote><a href="https://t.me/deltadiscuss">© DeltaxApps</a></blockquote>';
@@ -148,7 +149,7 @@ export class TelegramBotServer {
           this._currentExecutionCtx!.waitUntil(promise);
       } else {
         ctx.waitUntil = (promise: Promise<unknown>) => {
-          promise.catch((err) => console.error('[NonBlocking Task Error]:', err));
+          promise.catch((err) => logger.error({ err }, 'non-blocking task error'));
         };
       }
 
@@ -270,7 +271,7 @@ export class TelegramBotServer {
   private setupErrorHandling(): void {
     this._bot.catch((err) => {
       const ctx = err.ctx;
-      console.error(`[TelegramBotServer] Error on update ${ctx.update.update_id}:`, err.error);
+      logger.error({ err: err.error, updateId: ctx.update.update_id }, 'error handling update');
     });
   }
 

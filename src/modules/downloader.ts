@@ -13,6 +13,7 @@ import {
   extractMedia,
   extractDownloadTarget,
   type ExtractedResult,
+  logger,
 } from '../utils';
 
 export class DownloaderModule extends BaseModule {
@@ -95,7 +96,7 @@ export class DownloaderModule extends BaseModule {
     try {
       result = await extractMedia(url);
     } catch (err) {
-      console.error(`[DownloaderModule] Failed to extract ${platform}:`, err);
+      logger.error({ err, platform }, 'failed to extract media');
     }
 
     if (!result || result.items.length === 0) {
@@ -266,7 +267,7 @@ export class DownloaderModule extends BaseModule {
         }
       }
     } catch (sendErr) {
-      console.warn('[DownloaderModule] Direct media upload failed, attempting fallback:', sendErr);
+      logger.warn({ err: sendErr, platform }, 'direct media upload failed, attempting fallback');
 
       // Fallback for regular chat if Telegram server cannot download the media directly
       if (chatId) {

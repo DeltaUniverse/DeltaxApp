@@ -4,6 +4,8 @@
  * See LICENSE in the project root for license information.
  */
 
+import { logger } from '../utils';
+
 export interface DatabaseRecord {
   id: string;
   data: string;
@@ -35,7 +37,7 @@ export class Collection<T = Record<string, unknown>> {
       this.memoryStore?.set(id, { data: parsed, updatedAt: Date.now() });
       return parsed;
     } catch (err) {
-      console.warn(`[Database:${this.name}] Failed to get id "${id}":`, err);
+      logger.warn({ err, collection: this.name, id }, 'failed to get document');
       return null;
     }
   }
@@ -56,7 +58,7 @@ export class Collection<T = Record<string, unknown>> {
         .bind(this.name, id, serialized, now)
         .run();
     } catch (err) {
-      console.error(`[Database:${this.name}] Failed to set id "${id}":`, err);
+      logger.error({ err, collection: this.name, id }, 'failed to set document');
     }
   }
 
@@ -72,7 +74,7 @@ export class Collection<T = Record<string, unknown>> {
         .run();
       return (res.meta?.changes ?? 1) > 0;
     } catch (err) {
-      console.error(`[Database:${this.name}] Failed to delete id "${id}":`, err);
+      logger.error({ err, collection: this.name, id }, 'failed to delete document');
       return false;
     }
   }
@@ -93,7 +95,7 @@ export class Collection<T = Record<string, unknown>> {
 
       return (results || []).map((row) => JSON.parse(row.data) as T);
     } catch (err) {
-      console.error(`[Database:${this.name}] Failed to find records:`, err);
+      logger.error({ err, collection: this.name }, 'failed to find documents');
       return [];
     }
   }
@@ -110,7 +112,7 @@ export class Collection<T = Record<string, unknown>> {
         .first<{ total: number }>();
       return row?.total ?? 0;
     } catch (err) {
-      console.error(`[Database:${this.name}] Failed to count records:`, err);
+      logger.error({ err, collection: this.name }, 'failed to count documents');
       return 0;
     }
   }
@@ -151,7 +153,7 @@ export class DatabaseService {
       ]);
       this._tablesInitialized = true;
     } catch (err) {
-      console.error('[DatabaseService] Failed to initialize database tables:', err);
+      logger.error({ err }, 'failed to initialize database tables');
     }
   }
 
@@ -196,7 +198,7 @@ export class DatabaseService {
         return row.value;
       }
     } catch (err) {
-      console.warn(`[DatabaseService] Failed to get setting "${key}":`, err);
+      logger.warn({ err, key }, 'failed to get setting');
     }
 
     return defaultValue ?? null;
@@ -217,7 +219,7 @@ export class DatabaseService {
         .bind(key, value, now)
         .run();
     } catch (err) {
-      console.error(`[DatabaseService] Failed to set setting "${key}":`, err);
+      logger.error({ err, key }, 'failed to set setting');
     }
   }
 
@@ -230,7 +232,7 @@ export class DatabaseService {
       const res = await this._d1.prepare('DELETE FROM settings WHERE key = ?').bind(key).run();
       return (res.meta?.changes ?? 1) > 0;
     } catch (err) {
-      console.error(`[DatabaseService] Failed to delete setting "${key}":`, err);
+      logger.error({ err, key }, 'failed to delete setting');
       return false;
     }
   }

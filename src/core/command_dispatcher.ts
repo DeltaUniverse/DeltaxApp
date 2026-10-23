@@ -9,6 +9,7 @@ import type { BotContext } from '../types';
 import { PrefixService, isOwner, escapeRegex } from './prefix_service';
 import { stripHtml } from '../html';
 import { HTML_TAGS, hasHtmlTags, type MessageLike } from '../utils/telegram';
+import { logger } from '../utils';
 
 export { HTML_TAGS, hasHtmlTags };
 
@@ -166,7 +167,7 @@ export class CommandDispatcher {
       }
       return true;
     } catch (error) {
-      console.error(`[CommandDispatcher] Error executing command "${commandName}":`, error);
+      logger.error({ err: error, command: commandName }, 'command execution error');
       await cmdCtx.respond('⚠️ An error occurred while executing this command.');
       return true;
     }

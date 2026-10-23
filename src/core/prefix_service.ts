@@ -7,6 +7,7 @@
 import type { Env, BotContext } from '../types';
 import { DatabaseService } from './database';
 import { escapeRegex } from '../utils/misc';
+import { logger } from '../utils';
 
 let cachedBotPrefix: string | null = null;
 let cachedGuestPrefix: string | null = null;
@@ -38,7 +39,7 @@ export class PrefixService {
           return val;
         }
       } catch (err) {
-        console.warn('[PrefixService] Could not read bot_prefix from database:', err);
+        logger.warn({ err }, 'could not read bot_prefix from database');
       }
     }
 
@@ -57,7 +58,7 @@ export class PrefixService {
           return val;
         }
       } catch (err) {
-        console.warn('[PrefixService] Could not read guest_prefix from database:', err);
+        logger.warn({ err }, 'could not read guest_prefix from database');
       }
     }
 

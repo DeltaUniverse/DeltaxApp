@@ -8,6 +8,7 @@ import type { Bot } from 'grammy';
 import type { BaseModule } from './base_module';
 import type { CommandDispatcher } from './command_dispatcher';
 import type { BotContext, Env, ModuleConstructor } from '../types';
+import { logger } from '../utils';
 
 export type { ModuleConstructor };
 
@@ -34,25 +35,24 @@ export class ModuleManager {
     try {
       module = typeof moduleOrClass === 'function' ? new moduleOrClass() : moduleOrClass;
     } catch (err) {
-      console.error('[ModuleManager] Failed to instantiate module class:', err);
+      logger.error({ err }, 'failed to instantiate module class');
       return this;
     }
 
     if (!module || typeof module.id !== 'string' || !module.id.trim()) {
-      console.error(
-        '[ModuleManager] Invalid module ignored: Missing or empty string `id` property.'
-      );
+      logger.error('invalid module ignored: missing or empty id');
       return this;
     }
 
     if (!module.enabled) {
-      console.log(`[ModuleManager] Module ${module.id} is disabled, skipping.`);
+      logger.info({ moduleId: module.id }, 'module is disabled, skipping');
       return this;
     }
 
     if (this._modules.has(module.id)) {
-      console.warn(
-        `[ModuleManager] Module "${module.id}" already registered. Overwriting with latest instance.`
+      logger.warn(
+        { moduleId: module.id },
+        'module already registered, overwriting with latest instance'
       );
     }
 
@@ -64,24 +64,26 @@ export class ModuleManager {
       const setupResult = module.setup();
       if (setupResult instanceof Promise) {
         setupResult.catch((err) => {
-          console.error(`[ModuleManager] Async error during setup of module "${module.id}":`, err);
+          logger.error({ err, moduleId: module.id }, 'async error during module setup');
         });
       }
     } catch (err) {
-      console.error(
-        `[ModuleManager] Synchronous error during setup of module "${module.id}":`,
-        err
-      );
+      logger.error({ err, moduleId: module.id }, 'synchronous error during module setup');
     }
 
     try {
       this._bot.use(module.getComposer());
       this._modules.set(module.id, module);
-      console.log(
-        `[ModuleManager] Loaded module: ${module.name || module.id} (${module.id}) v${module.version || '1.0.0'}`
+      logger.info(
+        {
+          moduleId: module.id,
+          name: module.name || module.id,
+          version: module.version || '1.0.0',
+        },
+        'loaded module'
       );
     } catch (err) {
-      console.error(`[ModuleManager] Failed to mount composer for module "${module.id}":`, err);
+      logger.error({ err, moduleId: module.id }, 'failed to mount composer for module');
     }
 
     return this;
@@ -103,7 +105,7 @@ export class ModuleManager {
           try {
             await module.init(env);
           } catch (err) {
-            console.error(`[ModuleManager] Error initializing module "${id}":`, err);
+            logger.error({ err, moduleId: id }, 'error initializing module');
           }
         })()
       );
@@ -143,7 +145,7 @@ export class ModuleManager {
       const data = await response.json<{ ok: boolean }>();
       return Boolean(data?.ok);
     } catch (err) {
-      console.error('[ModuleManager] Failed to sync commands with Telegram API:', err);
+      logger.error({ err }, 'failed to sync commands with telegram api');
       return false;
     }
   }

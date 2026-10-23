@@ -1,7 +1,7 @@
 import { InlineKeyboard } from 'grammy';
 import { BaseModule, PrefixService, type CommandContext } from '../core';
 import { escapeHtml } from '../html';
-import { extractTargetUrl } from '../utils';
+import { extractTargetUrl, logger } from '../utils';
 
 interface MicrolinkResponse {
   status?: string;
@@ -31,7 +31,7 @@ async function resolveScreenshotUrl(targetUrl: string): Promise<string> {
       }
     }
   } catch (err) {
-    console.warn('[WebModule] Microlink API screenshot resolution failed:', err);
+    logger.warn({ err, targetUrl }, 'microlink api screenshot resolution failed');
   }
 
   // Resilient fallback: Thum.io directly renders any public URL without API key
@@ -125,7 +125,7 @@ export class WebModule extends BaseModule {
             reply_parameters: ctx.msg?.message_id ? { message_id: ctx.msg.message_id } : undefined,
           });
         } catch (err) {
-          console.warn('[WebModule] Primary sendPhoto failed, trying Thum.io fallback:', err);
+          logger.warn({ err, screenshotUrl }, 'primary sendPhoto failed, trying fallback');
           try {
             const fallbackUrl = `https://image.thum.io/get/width/1280/crop/800/${targetUrl}`;
             await ctx.api.sendPhoto(chatId, fallbackUrl, {
@@ -137,7 +137,10 @@ export class WebModule extends BaseModule {
                 : undefined,
             });
           } catch (fallbackErr) {
-            console.error('[WebModule] All screenshot delivery attempts failed:', fallbackErr);
+            logger.error(
+              { err: fallbackErr, targetUrl },
+              'all screenshot delivery attempts failed'
+            );
             const errorMsg =
               `❌ <b>Screenshot Failed</b>\n\n` +
               `<blockquote expandable>` +

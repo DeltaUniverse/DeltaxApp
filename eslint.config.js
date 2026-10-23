@@ -37,7 +37,14 @@ export default tseslint.config(
       ],
       eqeqeq: ['error', 'always'],
       'prefer-const': 'error',
-      'no-console': 'warn',
+      'no-console': 'error',
+      'no-empty': ['error', { allowEmptyCatch: true }],
+    },
+  },
+  {
+    files: ['src/utils/logger.ts'],
+    rules: {
+      'no-console': 'off',
     },
   },
   {

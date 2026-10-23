@@ -7,6 +7,7 @@
 import { Composer, type MiddlewareFn, type FilterQuery } from 'grammy';
 import type { BotContext, CommandMeta, Env } from '../types';
 import type { CommandDispatcher, CommandHandler, CommandOptions } from './command_dispatcher';
+import { logger } from '../utils';
 
 export abstract class BaseModule {
   abstract readonly id: string;
@@ -84,7 +85,7 @@ export abstract class BaseModule {
       try {
         await handler(ctx);
       } catch (error) {
-        console.error(`[Module:${this.id}] Listener error on(${String(filter)}):`, error);
+        logger.error({ err: error, module: this.id, filter: String(filter) }, 'listener error');
       }
       return next();
     });
@@ -99,7 +100,10 @@ export abstract class BaseModule {
       try {
         await handler(ctx);
       } catch (error) {
-        console.error(`[Module:${this.id}] Hears error (${String(pattern)}):`, error);
+        logger.error(
+          { err: error, module: this.id, pattern: String(pattern) },
+          'hears handler error'
+        );
       }
     });
     return this;
@@ -113,7 +117,10 @@ export abstract class BaseModule {
       try {
         await handler(ctx);
       } catch (error) {
-        console.error(`[Module:${this.id}] CallbackQuery error (${String(trigger)}):`, error);
+        logger.error(
+          { err: error, module: this.id, trigger: String(trigger) },
+          'callback query handler error'
+        );
       }
     });
     return this;

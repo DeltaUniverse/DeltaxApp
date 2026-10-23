@@ -1,5 +1,6 @@
 import { BaseModule, type CommandContext } from '../core';
 import { html } from '../html';
+import { logger } from '../utils';
 
 export class PingModule extends BaseModule {
   readonly id = 'ping';
@@ -27,13 +28,13 @@ export class PingModule extends BaseModule {
         if (sent.inline_message_id) {
           await ctx.api
             .editMessageTextInline(sent.inline_message_id, pongText, { parse_mode: 'HTML' })
-            .catch((err) => console.error('[PingModule] editMessageTextInline error:', err));
+            .catch((err) => logger.error({ err }, 'failed to edit inline message text'));
         } else if (sent.message_id) {
           const chatId = sent.chat?.id || ctx.chat?.id || ctx.msg?.chat?.id;
           if (chatId) {
             await ctx.api
               .editMessageText(chatId, sent.message_id, pongText, { parse_mode: 'HTML' })
-              .catch((err) => console.error('[PingModule] editMessageText error:', err));
+              .catch((err) => logger.error({ err }, 'failed to edit message text'));
           }
         }
       },

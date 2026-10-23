@@ -8,6 +8,7 @@ import { Hono } from 'hono';
 import { TelegramBotServer } from './core';
 import { AUTO_MODULES } from './modules';
 import type { Env } from './types';
+import { logger } from './utils';
 
 let botServerInstance: TelegramBotServer | null = null;
 
@@ -15,9 +16,7 @@ export function getBotServer(token: string): TelegramBotServer {
   if (!botServerInstance) {
     botServerInstance = new TelegramBotServer(token);
     botServerInstance.registerModules(AUTO_MODULES);
-    console.log(
-      `[Worker] Initialized TelegramBotServer with ${AUTO_MODULES.length} auto-loaded modules.`
-    );
+    logger.info({ modulesCount: AUTO_MODULES.length }, 'initialized telegram bot server');
   }
   return botServerInstance;
 }
