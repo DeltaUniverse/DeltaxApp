@@ -263,9 +263,8 @@ function parseWallpaperArgs(args: string[]): {
 }
 
 /**
- * WallpaperModule delivers daily Bing wallpapers with high-resolution 4K/UHD support,
- * multi-region markets, and archive history.
- * Sourced from the TimothyYe/bing-wallpaper architecture.
+ * WallpaperModule delivers daily Bing wallpapers with high-resolution 4K/UHD support.
+ * Registers /bing and /wallpaper commands.
  */
 export class WallpaperModule extends BaseModule {
   readonly id = 'wallpaper';

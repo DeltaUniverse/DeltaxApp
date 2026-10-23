@@ -124,9 +124,7 @@ async function extractViaTikWM(url: string): Promise<ExtractedResult | null> {
           return parseTikWMData(json.data);
         }
       }
-    } catch {
-      // Try next
-    }
+    } catch {}
 
     try {
       const postRes = await fetch(endpoint, {
@@ -144,9 +142,7 @@ async function extractViaTikWM(url: string): Promise<ExtractedResult | null> {
           return parseTikWMData(json.data);
         }
       }
-    } catch {
-      // Try next
-    }
+    } catch {}
   }
 
   return null;
@@ -339,9 +335,7 @@ async function extractTikTokLive(url: string): Promise<ExtractedResult | null> {
         if (user?.nickname) nickname = user.nickname;
         if (user?.uniqueId) username = user.uniqueId;
         viewers = liveRoom?.liveRoomStats?.userCount ?? liveRoom?.liveRoomStats?.enterCount;
-      } catch {
-        // Continue
-      }
+      } catch {}
     }
 
     if (!coverUrl) {
@@ -353,9 +347,7 @@ async function extractTikTokLive(url: string): Promise<ExtractedResult | null> {
         coverUrl = coverMatch[1].replace(/\\u002F/g, '/');
       }
     }
-  } catch {
-    // Continue with URL fallback
-  }
+  } catch {}
 
   if (!coverUrl) {
     coverUrl =

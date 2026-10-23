@@ -2,6 +2,10 @@ import { BaseModule, type CommandContext } from '../core';
 import { html } from '../html';
 import { logger } from '../utils';
 
+/**
+ * PingModule measures roundtrip latency to the Telegram Bot API.
+ * Registers /ping and /p commands.
+ */
 export class PingModule extends BaseModule {
   readonly id = 'ping';
   readonly name = 'Ping';

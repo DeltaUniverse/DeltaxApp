@@ -83,6 +83,21 @@ npm run make:module telemetry
 npm run generate:modules
 ```
 
+## Scripts
+
+| Command                      | Description                                           |
+| :--------------------------- | :---------------------------------------------------- |
+| `npm run dev`                | Start local development server with Wrangler          |
+| `npm run deploy`             | Deploy Worker to Cloudflare                           |
+| `npm run build`              | Sync module auto-imports and dry-run bundle build     |
+| `npm run check`              | Run format check, ESLint, and strict TypeScript check |
+| `npm test`                   | Run Node.js test suite                                |
+| `npm run format`             | Format codebase with Prettier                         |
+| `npm run lint`               | Lint codebase with ESLint                             |
+| `npm run typecheck`          | Run `tsc --noEmit` type checking                      |
+| `npm run make:module <name>` | Scaffold a new module in `src/modules/`               |
+| `npm run generate:modules`   | Regenerate module auto-imports                        |
+
 ## Runtime Configuration
 
 Set environment variables in `.dev.vars` (local) or via Cloudflare Worker Secrets:
@@ -92,6 +107,7 @@ Set environment variables in `.dev.vars` (local) or via Cloudflare Worker Secret
 | `BOT_TOKEN`      | `string`           | Telegram Bot API token from `@BotFather`                    |
 | `WEBHOOK_SECRET` | `string`           | Secret token verified via `X-Telegram-Bot-Api-Secret-Token` |
 | `OWNER_ID`       | `string \| number` | Telegram user ID for owner-restricted commands              |
+| `LOG_LEVEL`      | `string`           | Minimum log severity (`debug`, `info`, `warn`, `error`)     |
 | `ENVIRONMENT`    | `string`           | Runtime tier (`development` \| `production`)                |
 
 Cloudflare D1 binding required in `wrangler.jsonc`:

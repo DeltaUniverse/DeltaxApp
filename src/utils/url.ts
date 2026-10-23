@@ -8,9 +8,6 @@ import { escapeRegex } from './misc';
 import { extractMessageUrls, type MessageLike, type MessageEntityLike } from './telegram';
 import { findSupportedUrl, type SupportedPlatform } from './extractors';
 
-/**
- * Parses, sanitizes, and normalizes a URL string and extracts its canonical domain.
- */
 export function parseDomainAndUrl(raw: string): { url: string; domain: string } | null {
   if (!raw) return null;
   let targetUrl = raw.trim();
@@ -31,10 +28,6 @@ export function parseDomainAndUrl(raw: string): { url: string; domain: string } 
   }
 }
 
-/**
- * Extracts and resolves target URL and canonical domain from command text,
- * message entities, or a replied message.
- */
 export function extractTargetUrl(
   text: string,
   replyMsg?: MessageLike | null,
@@ -93,10 +86,6 @@ export function extractTargetUrl(
   return null;
 }
 
-/**
- * Extracts and resolves target social media download URL from command text,
- * message entities, or a replied message.
- */
 export function extractDownloadTarget(
   text: string,
   replyMsg?: MessageLike | null,

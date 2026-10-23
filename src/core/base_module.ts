@@ -9,6 +9,7 @@ import type { BotContext, CommandMeta, Env } from '../types';
 import type { CommandDispatcher, CommandHandler, CommandOptions } from './command_dispatcher';
 import { logger } from '../utils';
 
+/** Base class for modules with isolated routing and command registration. */
 export abstract class BaseModule {
   abstract readonly id: string;
   abstract readonly name: string;
@@ -45,6 +46,14 @@ export abstract class BaseModule {
     return this._commands;
   }
 
+  /**
+   * Registers one or more command triggers with an execution handler.
+   *
+   * @example
+   * this.command(['ping', 'p'], async (ctx) => {
+   *   await ctx.respond('Pong!');
+   * }, { description: 'Check bot latency' });
+   */
   protected command(
     name: string | string[],
     handler: CommandHandler,

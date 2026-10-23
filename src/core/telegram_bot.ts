@@ -25,7 +25,6 @@ export function injectGuestFooter(result: unknown): void {
   if (!result || typeof result !== 'object') return;
   const res = result as Record<string, unknown>;
 
-  // 1. Article with input_message_content
   if (res.input_message_content && typeof res.input_message_content === 'object') {
     const imc = res.input_message_content as Record<string, unknown>;
     if (typeof imc.message_text === 'string' && imc.message_text.trim()) {
@@ -44,7 +43,6 @@ export function injectGuestFooter(result: unknown): void {
     }
   }
 
-  // 2. Photo / Media with caption
   if (typeof res.caption === 'string' && res.caption.trim()) {
     if (!res.caption.includes('deltadiscuss')) {
       res.caption = `${res.caption.trimEnd()}\n\n${GUEST_FOOTER}`;
@@ -53,6 +51,7 @@ export function injectGuestFooter(result: unknown): void {
   }
 }
 
+/** Serverless Telegram Bot engine handling webhooks, dispatching, and lifecycle. */
 export class TelegramBotServer {
   private readonly _bot: Bot<BotContext>;
   private readonly _commandDispatcher: CommandDispatcher;

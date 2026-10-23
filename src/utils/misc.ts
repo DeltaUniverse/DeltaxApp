@@ -4,16 +4,10 @@
  * See LICENSE in the project root for license information.
  */
 
-/**
- * Escapes special characters for safe use in regular expressions.
- */
 export function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/**
- * Formats a numeric count or count string into a human-readable abbreviated string (e.g. 1.5K, 2.3M).
- */
 export function formatCount(val: number | string): string {
   const n = typeof val === 'string' ? parseFloat(val) : val;
   if (isNaN(n)) return String(val);
@@ -22,9 +16,6 @@ export function formatCount(val: number | string): string {
   return String(n);
 }
 
-/**
- * Parses an abbreviated count string (e.g. '1.5M', '20K', '1,234') into a numeric value.
- */
 export function parseKNumber(str: string): number | undefined {
   if (!str) return undefined;
   const cleaned = str.trim().toUpperCase();
@@ -40,9 +31,6 @@ export function parseKNumber(str: string): number | undefined {
   return isNaN(n) ? undefined : n;
 }
 
-/**
- * Generates a random alphanumeric string of the specified length.
- */
 export function randomAlphaNumeric(len: number): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let res = '';

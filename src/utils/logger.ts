@@ -75,4 +75,11 @@ function createLogger(bindings: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * Lightweight JSON logger with level filtering and error serialization.
+ *
+ * @example
+ * logger.info({ command: 'ping' }, 'dispatched command');
+ * logger.error({ err }, 'failed to process message');
+ */
 export const logger = createLogger();

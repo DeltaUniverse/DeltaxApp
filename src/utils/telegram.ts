@@ -43,9 +43,6 @@ export interface ContextLike {
   guest?: GuestClassification;
 }
 
-/**
- * Builds an HTML user mention string.
- */
 export function getUserMention(user?: UserLike | null): string {
   if (!user) return 'there';
   if (user.first_name && user.id) {
@@ -77,9 +74,6 @@ export function isGuestMode(ctx: ContextLike | null | undefined): boolean {
   );
 }
 
-/**
- * Extracts raw text/caption and all URLs from message entities.
- */
 export function extractMessageUrls(msg?: MessageLike | null): {
   text: string;
   entityUrls: string[];
@@ -106,9 +100,6 @@ export function extractMessageUrls(msg?: MessageLike | null): {
   return { text, entityUrls };
 }
 
-/**
- * Telegram HTML tags used for auto-detecting parse_mode
- */
 export const HTML_TAGS = [
   '<blockquote',
   '<b>',
@@ -121,9 +112,6 @@ export const HTML_TAGS = [
   '<a ',
 ];
 
-/**
- * Checks if a string contains any Telegram HTML formatting tags.
- */
 export function hasHtmlTags(text: string): boolean {
   if (!text) return false;
   const lower = text.toLowerCase();

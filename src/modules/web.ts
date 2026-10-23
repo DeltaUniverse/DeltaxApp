@@ -39,9 +39,8 @@ async function resolveScreenshotUrl(targetUrl: string): Promise<string> {
 }
 
 /**
- * WebModule provides website screenshot capabilities:
- * - Supports direct arguments or replying to any message containing a link
- * - Dynamic D1 prefixes (e.g. /ss, !ss, @bot !ss, @bot ss)
+ * WebModule captures and sends full website screenshots using Microlink with Thum.io fallback.
+ * Registers /ss and /web commands.
  */
 export class WebModule extends BaseModule {
   readonly id = 'web';

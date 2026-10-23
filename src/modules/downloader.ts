@@ -16,6 +16,10 @@ import {
   logger,
 } from '../utils';
 
+/**
+ * DownloaderModule handles media extraction and downloads for Instagram, TikTok, and X.
+ * Registers /dl, /download, and handles guest URL messages.
+ */
 export class DownloaderModule extends BaseModule {
   readonly id = 'downloader';
   readonly name = 'Downloader';

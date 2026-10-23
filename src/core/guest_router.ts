@@ -26,6 +26,7 @@ export function buildCommandRegex(prefix: string, names: string[]): RegExp {
   );
 }
 
+/** Classifies incoming guest message intent into command, reply, url, or wrong-prefix. */
 export function classifyGuestMessage(
   ctx: ContextLike | BotContext,
   registeredCommandNames: string[],

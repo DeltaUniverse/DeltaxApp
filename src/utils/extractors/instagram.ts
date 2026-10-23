@@ -262,9 +262,7 @@ async function extractViaSSR(shortcode: string): Promise<ExtractedResult | null>
             items,
           };
         }
-      } catch {
-        // Try next script
-      }
+      } catch {}
     }
   } catch {
     return null;
@@ -714,9 +712,7 @@ export async function extractInstagram(inputUrl: string): Promise<ExtractedResul
         }
         if (!result.stats && ogMeta.stats) result.stats = ogMeta.stats;
       }
-    } catch {
-      // Ignore
-    }
+    } catch {}
   }
 
   return result;

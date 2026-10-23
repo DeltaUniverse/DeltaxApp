@@ -40,6 +40,7 @@ interface RegisteredCommand {
   options: CommandOptions;
 }
 
+/** Dispatches bot commands matching active prefix to registered handlers. */
 export class CommandDispatcher {
   private readonly _commands: Map<string, RegisteredCommand> = new Map();
   private readonly _commandList: RegisteredCommand[] = [];

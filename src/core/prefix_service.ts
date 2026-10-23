@@ -26,6 +26,12 @@ export function isOwner(ctx: BotContext): boolean {
   return Boolean(callerId && callerId === configuredOwnerId);
 }
 
+/**
+ * Resolves and caches bot and guest command prefixes from D1 settings.
+ *
+ * @example
+ * const prefix = await PrefixService.getBotPrefix(env);
+ */
 export class PrefixService {
   public static async getBotPrefix(env?: Env): Promise<string> {
     if (cachedBotPrefix) return cachedBotPrefix;

@@ -12,6 +12,7 @@ export interface DatabaseRecord {
   updated_at: number;
 }
 
+/** Manages typed document persistence in D1 with isolate memory caching. */
 export class Collection<T = Record<string, unknown>> {
   constructor(
     private readonly name: string,
@@ -118,6 +119,7 @@ export class Collection<T = Record<string, unknown>> {
   }
 }
 
+/** Service for managing D1 database collections and persistent settings. */
 export class DatabaseService {
   private readonly _collections: Map<string, Collection<unknown>> = new Map();
   private readonly _memoryCollections: Map<

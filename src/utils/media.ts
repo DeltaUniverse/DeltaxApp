@@ -8,9 +8,7 @@ import type { InputMediaPhoto, InputMediaVideo } from 'grammy/types';
 import type { ExtractedMediaItem } from './extractors/types';
 import { escapeHtml } from '../html';
 
-/**
- * Splits an array into chunks of a given maximum size (e.g. 10 for Telegram albums).
- */
+/** Splits an array into chunks of a given maximum size (Telegram albums limit: 10). */
 export function chunkMediaItems<T>(items: T[], size = 10): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < items.length; i += size) {
@@ -19,10 +17,7 @@ export function chunkMediaItems<T>(items: T[], size = 10): T[][] {
   return chunks;
 }
 
-/**
- * Builds an array of Telegram InputMedia objects (InputMediaPhoto | InputMediaVideo) for sendMediaGroup.
- * Only the first item in the album receives the caption and parse_mode per Telegram Bot API specifications.
- */
+/** Telegram sendMediaGroup only displays caption when set on the first item. */
 export function createTelegramAlbum(
   items: ExtractedMediaItem[],
   caption?: string,
@@ -77,10 +72,7 @@ export function buildGuestMediaContainer(items: ExtractedMediaItem[]): string {
   return `<tg-slideshow>\n${mediaTags.join('\n')}\n</tg-slideshow>`;
 }
 
-/**
- * Safely truncates caption text to conform to Telegram's 1024-character caption limit,
- * taking overhead (metrics, signatures, footers) into account.
- */
+/** Truncates text to conform to Telegram's 1024-character caption limit. */
 export function truncateCaption(caption: string, maxLen = 1024, overhead = 0): string {
   if (!caption) return '';
   const available = Math.max(100, maxLen - overhead);

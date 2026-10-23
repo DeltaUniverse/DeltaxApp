@@ -24,10 +24,7 @@ export function escapeHtml(value: unknown): string {
     .replace(/"/g, '&quot;');
 }
 
-/**
- * Safely strips HTML tags repeatedly to prevent multi-character reintroduction vulnerabilities.
- * Conforms to CodeQL / OWASP iterative sanitization recommendations.
- */
+/** Strips HTML tags iteratively to prevent nested tag injection. */
 export function stripHtml(input: string): string {
   if (!input) return '';
   let sanitized = input;
