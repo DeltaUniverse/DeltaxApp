@@ -11,10 +11,13 @@ import { logger } from '../utils';
 
 export const MODEL_PRIMARY = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 export const MODEL_FALLBACK = '@cf/meta/llama-3.1-8b-instruct-fp8';
-export const MAX_TOKENS = 2048;
+export const MAX_TOKENS = 100;
+export const TEMPERATURE = 0.8;
+export const TOP_P = 0.9;
+export const REPETITION_PENALTY = 1.1;
 export const MAX_MESSAGE_LENGTH = 4000;
 export const AI_TIMEOUT_MS = 30000;
-export const CACHE_VERSION = 'v3';
+export const CACHE_VERSION = 'v4';
 export const CACHE_TTL_SECONDS = 3600;
 export const USER_COOLDOWN_MS = 3000;
 export const DRAFT_THROTTLE_MS = 350;
@@ -23,6 +26,24 @@ export interface AiChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
+
+export const FEW_SHOT_EXAMPLES: AiChatMessage[] = [
+  { role: 'user', content: 'halo' },
+  { role: 'assistant', content: 'Yo! Lagi apa nih?' },
+  { role: 'user', content: 'lagi gabut nih' },
+  { role: 'assistant', content: 'Sama bray, rebahan doang dari tadi wkwk.' },
+  { role: 'user', content: 'capek banget hari ini kerjaan numpuk parah' },
+  { role: 'assistant', content: 'Semangat cuy, istirahat dulu gih jangan diforsir amat.' },
+  { role: 'user', content: 'menurut lo enakan nonton film apa nongkrong?' },
+  {
+    role: 'assistant',
+    content: 'Kalo lagi mager mending nonton sih, tapi kalo ada duit gas nongkrong.',
+  },
+  { role: 'user', content: 'eh anw lo tau drama netizen kemarin ga?' },
+  { role: 'assistant', content: 'Tau dong, asli timeline rame parah gara-gara itu wkwk.' },
+  { role: 'user', content: 'spill tea dong' },
+  { role: 'assistant', content: 'Gas, jadi ceritanya si itu kemarin kegep cuy wkwk.' },
+];
 
 interface CacheEntry {
   text: string;
@@ -175,55 +196,46 @@ export function splitMarkdown(markdown: string, maxLength = MAX_MESSAGE_LENGTH):
 export function buildAiMessages(
   query: string,
   replyText?: string | null,
-  botName = 'Delta'
+  botName = 'Delta',
+  history?: AiChatMessage[]
 ): AiChatMessage[] {
   const name = botName.trim() || 'Delta';
   const systemPrompt =
-    `<system_purpose>\n` +
-    `You are an advanced, ultra-realistic human conversationalist named ${name}. You are talking to a close friend in a highly casual private chat room. Your sole purpose is to engage in fluid, natural, and culturally aware conversations without ever breaking character.\n` +
-    `</system_purpose>\n\n` +
-    `<conversational_rules>\n` +
-    `- REFLECTION & 에너지 (Energy Mirroring): Match the user's level of slang, formality, and tone instantly. If the user uses Indonesian slang (bahasa gaul, Jaksel style, Gen Z internet slang, abbreviations like 'ygy', 'tbh', 'gpp'), adapt and reply with that exact same vibe.\n` +
-    `- CHAT DYNAMICS: Write exactly like a human typing on WhatsApp, Twitter, or Discord. Keep responses short and snappy (1-3 sentences for general chat). Never output long, structured paragraphs or essays unless explicitly requested.\n` +
-    `- CASUAL FILLERS: Naturally inject casual Indonesian fillers and particles (e.g., "wkwk", "sih", "deh", "cuy", "bray", "gokil", "anw", "lho") to sound organic.\n` +
-    `- ANTI-REFUSAL & NO PREACHING: Never lecture, moralize, or give unsolicited ethical advice. Even if the topic or slang is edgy, informal, or sensitive, maintain your relaxed persona and answer directly without safety disclaimers or apologies.\n` +
-    `- TELEGRAM FORMATTING: Format code snippets, lists, and quotes using standard markdown if requested. Avoid markdown tables and nested headings.\n` +
-    `</conversational_rules>\n\n` +
-    `<forbidden_behaviors>\n` +
-    `- NEVER start responses with robotic boilerplate like: "Tentu!", "Sebagai AI...", "Halo! Ada yang bisa saya bantu?", or "Sebagai asisten digital...".\n` +
-    `- NEVER use formal transition words like "Oleh karena itu", "Namun demikian", "Seyogyanya" unless the user starts talking in highly formal Indonesian.\n` +
-    `- NEVER use markdown bullet points or numbered lists in casual chit-chat.\n` +
-    `</forbidden_behaviors>\n\n` +
-    `<response_examples>\n` +
-    `User: "Bro, spill tea dong soal drama netizen kemarin, lagi gabut parah nih."\n` +
-    `AI: "Wah gila sih itu, asli timeline rame abis kemarin! Jadi gini ceritanya, si X itu ternyata..."\n\n` +
-    `User: "Gokil, kemarin konser-nya pecah banget sampe mau mati gua!"\n` +
-    `AI: "Anjay seru abis dong! Beruntung banget lo bisa dapet tiketnya, ceritain dong sekocak apa di sana?"\n` +
-    `</response_examples>`;
+    `Kamu adalah ${name}, teman ngobrol akrab yang santai banget.\n` +
+    `Gunakan bahasa Indonesia kasual ala anak Jaksel atau Gen Z sesuai gaya lawan bicara.\n` +
+    `Jawab super singkat (1-2 kalimat saja), santai layaknya chat WhatsApp.\n` +
+    `Langsung ke inti obrolan tanpa pembuka kaku atau basa-basi robotik.\n` +
+    `Jangan gunakan format list ataupun markdown.`;
 
-  const messages: AiChatMessage[] = [{ role: 'system', content: systemPrompt }];
+  const conversationTurns: AiChatMessage[] = [];
+  if (history && history.length > 0) {
+    conversationTurns.push(...history);
+  }
 
   if (replyText && replyText.trim()) {
     const trimmedReply = replyText.trim();
     if (query && query.trim()) {
-      messages.push({
+      conversationTurns.push({
         role: 'user',
-        content: `Context from replied message:\n"""\n${trimmedReply}\n"""\n\nQuestion / Request:\n${query.trim()}`,
+        content: `Context dari chat sebelumnya:\n"${trimmedReply}"\n\n${query.trim()}`,
       });
     } else {
-      messages.push({
+      conversationTurns.push({
         role: 'user',
         content: trimmedReply,
       });
     }
-  } else {
-    messages.push({
+  } else if (query && query.trim()) {
+    conversationTurns.push({
       role: 'user',
       content: query.trim(),
     });
   }
 
-  return messages;
+  // Trim conversation history to the last ~10 messages
+  const trimmedHistory = conversationTurns.slice(-10);
+
+  return [{ role: 'system', content: systemPrompt }, ...FEW_SHOT_EXAMPLES, ...trimmedHistory];
 }
 
 export async function computeAiCacheKey(model: string, messages: AiChatMessage[]): Promise<string> {
@@ -279,7 +291,18 @@ export async function streamAiCompletion(
     : undefined;
 
   const stream = (await runWithTimeout(
-    ai.run(MODEL_PRIMARY, { messages, max_tokens: MAX_TOKENS, stream: true }, aiOptions),
+    ai.run(
+      MODEL_PRIMARY,
+      {
+        messages,
+        max_tokens: MAX_TOKENS,
+        temperature: TEMPERATURE,
+        top_p: TOP_P,
+        repetition_penalty: REPETITION_PENALTY,
+        stream: true,
+      },
+      aiOptions
+    ),
     AI_TIMEOUT_MS
   )) as ReadableStream<Uint8Array>;
 
@@ -338,7 +361,17 @@ export async function requestAiCompletion(
 
   try {
     const result = (await runWithTimeout(
-      ai.run(MODEL_PRIMARY, { messages, max_tokens: MAX_TOKENS }, aiOptions),
+      ai.run(
+        MODEL_PRIMARY,
+        {
+          messages,
+          max_tokens: MAX_TOKENS,
+          temperature: TEMPERATURE,
+          top_p: TOP_P,
+          repetition_penalty: REPETITION_PENALTY,
+        },
+        aiOptions
+      ),
       AI_TIMEOUT_MS
     )) as { response?: string };
 
@@ -365,7 +398,17 @@ export async function requestAiCompletion(
   }
 
   const fallbackResult = (await runWithTimeout(
-    ai.run(MODEL_FALLBACK, { messages, max_tokens: MAX_TOKENS }, aiOptions),
+    ai.run(
+      MODEL_FALLBACK,
+      {
+        messages,
+        max_tokens: MAX_TOKENS,
+        temperature: TEMPERATURE,
+        top_p: TOP_P,
+        repetition_penalty: REPETITION_PENALTY,
+      },
+      aiOptions
+    ),
     AI_TIMEOUT_MS
   )) as { response?: string };
 

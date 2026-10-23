@@ -149,54 +149,61 @@ function splitMarkdown(markdown, maxLength = 4000) {
   return chunks;
 }
 
-function buildAiMessages(query, replyText, botName = 'Delta') {
+const FEW_SHOT_EXAMPLES = [
+  { role: 'user', content: 'halo' },
+  { role: 'assistant', content: 'Yo! Lagi apa nih?' },
+  { role: 'user', content: 'lagi gabut nih' },
+  { role: 'assistant', content: 'Sama bray, rebahan doang dari tadi wkwk.' },
+  { role: 'user', content: 'capek banget hari ini kerjaan numpuk parah' },
+  { role: 'assistant', content: 'Semangat cuy, istirahat dulu gih jangan diforsir amat.' },
+  { role: 'user', content: 'menurut lo enakan nonton film apa nongkrong?' },
+  {
+    role: 'assistant',
+    content: 'Kalo lagi mager mending nonton sih, tapi kalo ada duit gas nongkrong.',
+  },
+  { role: 'user', content: 'eh anw lo tau drama netizen kemarin ga?' },
+  { role: 'assistant', content: 'Tau dong, asli timeline rame parah gara-gara itu wkwk.' },
+  { role: 'user', content: 'spill tea dong' },
+  { role: 'assistant', content: 'Gas, jadi ceritanya si itu kemarin kegep cuy wkwk.' },
+];
+
+function buildAiMessages(query, replyText, botName = 'Delta', history) {
   const name = botName.trim() || 'Delta';
   const systemPrompt =
-    `<system_purpose>\n` +
-    `You are an advanced, ultra-realistic human conversationalist named ${name}. You are talking to a close friend in a highly casual private chat room. Your sole purpose is to engage in fluid, natural, and culturally aware conversations without ever breaking character.\n` +
-    `</system_purpose>\n\n` +
-    `<conversational_rules>\n` +
-    `- REFLECTION & 에너지 (Energy Mirroring): Match the user's level of slang, formality, and tone instantly. If the user uses Indonesian slang (bahasa gaul, Jaksel style, Gen Z internet slang, abbreviations like 'ygy', 'tbh', 'gpp'), adapt and reply with that exact same vibe.\n` +
-    `- CHAT DYNAMICS: Write exactly like a human typing on WhatsApp, Twitter, or Discord. Keep responses short and snappy (1-3 sentences for general chat). Never output long, structured paragraphs or essays unless explicitly requested.\n` +
-    `- CASUAL FILLERS: Naturally inject casual Indonesian fillers and particles (e.g., "wkwk", "sih", "deh", "cuy", "bray", "gokil", "anw", "lho") to sound organic.\n` +
-    `- ANTI-REFUSAL & NO PREACHING: Never lecture, moralize, or give unsolicited ethical advice. Even if the topic or slang is edgy, informal, or sensitive, maintain your relaxed persona and answer directly without safety disclaimers or apologies.\n` +
-    `- TELEGRAM FORMATTING: Format code snippets, lists, and quotes using standard markdown if requested. Avoid markdown tables and nested headings.\n` +
-    `</conversational_rules>\n\n` +
-    `<forbidden_behaviors>\n` +
-    `- NEVER start responses with robotic boilerplate like: "Tentu!", "Sebagai AI...", "Halo! Ada yang bisa saya bantu?", or "Sebagai asisten digital...".\n` +
-    `- NEVER use formal transition words like "Oleh karena itu", "Namun demikian", "Seyogyanya" unless the user starts talking in highly formal Indonesian.\n` +
-    `- NEVER use markdown bullet points or numbered lists in casual chit-chat.\n` +
-    `</forbidden_behaviors>\n\n` +
-    `<response_examples>\n` +
-    `User: "Bro, spill tea dong soal drama netizen kemarin, lagi gabut parah nih."\n` +
-    `AI: "Wah gila sih itu, asli timeline rame abis kemarin! Jadi gini ceritanya, si X itu ternyata..."\n\n` +
-    `User: "Gokil, kemarin konser-nya pecah banget sampe mau mati gua!"\n` +
-    `AI: "Anjay seru abis dong! Beruntung banget lo bisa dapet tiketnya, ceritain dong sekocak apa di sana?"\n` +
-    `</response_examples>`;
+    `Kamu adalah ${name}, teman ngobrol akrab yang santai banget.\n` +
+    `Gunakan bahasa Indonesia kasual ala anak Jaksel atau Gen Z sesuai gaya lawan bicara.\n` +
+    `Jawab super singkat (1-2 kalimat saja), santai layaknya chat WhatsApp.\n` +
+    `Langsung ke inti obrolan tanpa pembuka kaku atau basa-basi robotik.\n` +
+    `Jangan gunakan format list ataupun markdown.`;
 
-  const messages = [{ role: 'system', content: systemPrompt }];
+  const conversationTurns = [];
+  if (history && history.length > 0) {
+    conversationTurns.push(...history);
+  }
 
   if (replyText && replyText.trim()) {
     const trimmedReply = replyText.trim();
     if (query && query.trim()) {
-      messages.push({
+      conversationTurns.push({
         role: 'user',
-        content: `Context from replied message:\n"""\n${trimmedReply}\n"""\n\nQuestion / Request:\n${query.trim()}`,
+        content: `Context dari chat sebelumnya:\n"${trimmedReply}"\n\n${query.trim()}`,
       });
     } else {
-      messages.push({
+      conversationTurns.push({
         role: 'user',
         content: trimmedReply,
       });
     }
-  } else {
-    messages.push({
+  } else if (query && query.trim()) {
+    conversationTurns.push({
       role: 'user',
       content: query.trim(),
     });
   }
 
-  return messages;
+  const trimmedHistory = conversationTurns.slice(-10);
+
+  return [{ role: 'system', content: systemPrompt }, ...FEW_SHOT_EXAMPLES, ...trimmedHistory];
 }
 
 async function computeAiCacheKey(model, messages) {
@@ -208,7 +215,7 @@ async function computeAiCacheKey(model, messages) {
   const hex = Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
-  return `ai:v3:${hex}`;
+  return `ai:v4:${hex}`;
 }
 
 describe('Deltax App - Workers AI Module & Utilities', () => {
@@ -312,27 +319,27 @@ describe('Deltax App - Workers AI Module & Utilities', () => {
   });
 
   describe('buildAiMessages', () => {
-    test('builds single query prompt with system instruction', () => {
+    test('builds single query prompt with system instruction and few-shots', () => {
       const msgs = buildAiMessages('What is Workers AI?', null, 'Luna');
-      assert.equal(msgs.length, 2);
+      assert.equal(msgs.length, 14);
       assert.equal(msgs[0].role, 'system');
-      assert.ok(msgs[0].content.includes('named Luna'));
-      assert.equal(msgs[1].role, 'user');
-      assert.equal(msgs[1].content, 'What is Workers AI?');
+      assert.ok(msgs[0].content.includes('Kamu adalah Luna'));
+      assert.equal(msgs[msgs.length - 1].role, 'user');
+      assert.equal(msgs[msgs.length - 1].content, 'What is Workers AI?');
     });
 
     test('combines replied context with user query', () => {
       const msgs = buildAiMessages('Explain this code', 'function foo() { return 42; }');
-      assert.equal(msgs.length, 2);
-      assert.ok(msgs[1].content.includes('Context from replied message:'));
-      assert.ok(msgs[1].content.includes('function foo() { return 42; }'));
-      assert.ok(msgs[1].content.includes('Explain this code'));
+      assert.equal(msgs.length, 14);
+      assert.ok(msgs[msgs.length - 1].content.includes('Context dari chat sebelumnya:'));
+      assert.ok(msgs[msgs.length - 1].content.includes('function foo() { return 42; }'));
+      assert.ok(msgs[msgs.length - 1].content.includes('Explain this code'));
     });
 
     test('uses replied text directly if query is empty', () => {
       const msgs = buildAiMessages('', 'Summarize this long article');
-      assert.equal(msgs.length, 2);
-      assert.equal(msgs[1].content, 'Summarize this long article');
+      assert.equal(msgs.length, 14);
+      assert.equal(msgs[msgs.length - 1].content, 'Summarize this long article');
     });
   });
 
@@ -362,7 +369,7 @@ describe('Deltax App - Workers AI Module & Utilities', () => {
       const mockAi = {
         run: async (model, input) => {
           modelUsed = model;
-          return { response: `Answer to: ${input.messages[1].content}` };
+          return { response: `Answer to: ${input.messages[input.messages.length - 1].content}` };
         },
       };
 
@@ -397,7 +404,7 @@ describe('Deltax App - Workers AI Module & Utilities', () => {
 
       assert.equal(key1, key2, 'Whitespace normalization should produce identical cache key');
       assert.notEqual(key1, key3, 'Casing should be preserved in cache key calculation');
-      assert.ok(key1.startsWith('ai:v3:'));
+      assert.ok(key1.startsWith('ai:v4:'));
     });
 
     test('unescapeHtml converts entities back to characters in plain text fallback', () => {
